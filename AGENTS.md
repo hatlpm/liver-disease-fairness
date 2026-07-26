@@ -51,8 +51,8 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | Fase | Rama | Estado |
 |------|------|--------|
 | 0 — Setup | `feature/fase-0-setup` → mezclada a `main` | ✅ Cerrada |
-| 1 — Problem Framing | `feature/fase-1-problem-framing` | ✅ Notebook commiteado, pendiente de merge a `main` |
-| 2 — EDA | — | ⏳ No iniciada |
+| 1 — Problem Framing | `feature/fase-1-problem-framing` → mezclada a `main` | ✅ Cerrada |
+| 2 — EDA | `feature/fase-2-eda` | ✅ Notebook completo (T1–T5), pendiente de tu revisión y merge a `main` |
 | 3 — Preprocessing | — | ⏳ No iniciada |
 | E — Entregables | — | ⏳ No iniciada |
 
