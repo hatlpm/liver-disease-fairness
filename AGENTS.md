@@ -5,6 +5,23 @@ repo — desde esta máquina o desde otra, vía OneDrive — recupere el context
 operativo sin tener que re-derivarlo desde cero. No reemplaza al PRD ni al
 CHANGELOG: es un mapa rápido de "cómo trabajamos aquí" y "en qué vamos".
 
+## ⚠️ Primer paso obligatorio para cualquier sesión nueva (agregado 2026-07-26)
+
+El historial de chat **no viaja entre computadoras** — solo este repo lo hace,
+vía OneDrive. Por eso, antes de tocar cualquier archivo o continuar el
+trabajo, toda sesión/chat nuevo que abra este repo — sobre todo si es en otra
+máquina — debe **reconstruir el contexto operativo primero**, en este orden:
+
+1. Leer este archivo completo y el PRD (`../PRD_liver_disease_fases_0-3.md`).
+2. Correr `git log --oneline --all --graph` y `git status` para confirmar en
+   qué rama y commit está parado el repo, y si hay cambios sin commitear.
+3. Revisar la tabla "Estado actual" (más abajo) para saber qué fase está
+   cerrada, cuál está en curso y cuál no ha empezado.
+4. Si algo del estado real del repo no coincide con lo que dice esta tabla
+   (una rama que no aparece aquí, commits más recientes que la última fecha
+   registrada, etc.), **decirlo explícitamente al usuario antes de seguir**
+   — no asumir ni rellenar huecos de información por cuenta propia.
+
 ## Qué es este proyecto
 
 Predicción de enfermedad hepática (ILPD) con auditoría de *fairness* por sexo,
