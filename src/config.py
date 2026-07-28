@@ -72,6 +72,19 @@ DE_RITIS_VIRAL = 1.0
 AGE_ADULT_MIN = 18
 AGE_BANDS = [(0, 17), (18, 39), (40, 59), (60, 120)]
 
+# --- Fase 2c: clustering jerárquico exploratorio (edad × sexo) ---
+# Método de enlace estándar para clustering jerárquico con distancia euclídea
+# sobre variables estandarizadas (minimiza varianza intra-cluster).
+CLUSTER_LINKAGE_METHOD = "ward"
+
+# Una banda de edad se divide por sexo si al menos uno de los dos grupos
+# alcanza este tamaño (regla práctica, no un valor validado formalmente);
+# si ambos quedan por debajo, la banda completa se trata como un solo grupo
+# mixto en vez de partirla en submuestras demasiado chicas para que un
+# dendrograma refleje señal real en vez de ruido. Solo la banda pediátrica
+# (0-17, n=25: 7 mujeres/18 hombres) cae en ese caso.
+MIN_STRATUM_SIZE_FOR_SEX_SPLIT = 30
+
 # --- Índice de Whipple (age heaping) ---
 # Rango canónico 23-62 y dígitos terminales 0/5. Escala ONU en utils.
 WHIPPLE_AGE_RANGE = (23, 62)

@@ -1,12 +1,16 @@
 """Funciones auxiliares para carga de datos, gráficos y chequeos clínicos."""
 
+import numpy as np
 import pandas as pd
+from scipy.cluster.hierarchy import fcluster, linkage
 
 from src.config import (
+    AGE_BANDS,
     ALT_ULN_BY_SEX,
     ALT_ULN_UNISEX,
     DPI,
     FIGURES_DIR,
+    MIN_STRATUM_SIZE_FOR_SEX_SPLIT,
     RAW_DATA_PATH,
     WHIPPLE_AGE_RANGE,
     WHIPPLE_DIGIT_STEP,
@@ -201,3 +205,99 @@ def alt_threshold_comparison(df: pd.DataFrame) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows).set_index("Gender")
+
+
+def age_band_label(age: int) -> str:
+    """Traduce una edad a su etiqueta de banda según ``AGE_BANDS``.
+
+    Parameters
+    ----------
+    age : int
+        Edad en años.
+
+    Returns
+    -------
+    str
+        Etiqueta ``"lo-hi"`` de la banda que contiene ``age``.
+    """
+    for lo, hi in AGE_BANDS:
+        if lo <= age <= hi:
+            return f"{lo}-{hi}"
+    raise ValueError(f"Edad {age} fuera de todas las bandas de AGE_BANDS")
+
+
+def assign_age_sex_stratum(df: pd.DataFrame) -> pd.Series:
+    """Asigna cada fila a un estrato edad × sexo para el clustering de Fase 2c.
+
+    Reutiliza las bandas de ``AGE_BANDS``. Una banda se divide por sexo si
+    **al menos una** de las dos submuestras alcanza
+    ``MIN_STRATUM_SIZE_FOR_SEX_SPLIT`` (el sexo grande se analiza aparte, el
+    chico simplemente hereda una muestra menor y se reporta con ese
+    caveat). Solo si **ambas** submuestras quedan por debajo del umbral —
+    caso de la banda pediátrica, 0-17, n=25: 7 mujeres/18 hombres — se
+    colapsa la banda entera en un solo grupo mixto, porque ahí ni siquiera
+    el sexo mayoritario alcanza una muestra mínima para un dendrograma
+    estable.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame con columnas ``Age`` y ``Gender``.
+
+    Returns
+    -------
+    pandas.Series
+        Etiqueta de estrato por fila, p. ej. ``"18-39 · Female"`` o
+        ``"0-17 · ambos sexos"``.
+    """
+    band = df["Age"].apply(age_band_label)
+    counts = pd.crosstab(band, df["Gender"])
+    splittable_bands = counts[counts.max(axis=1) >= MIN_STRATUM_SIZE_FOR_SEX_SPLIT].index
+
+    def label(row_band: str, row_gender: str) -> str:
+        if row_band in splittable_bands:
+            return f"{row_band} · {row_gender}"
+        return f"{row_band} · ambos sexos"
+
+    return pd.Series(
+        [label(b, g) for b, g in zip(band, df["Gender"])],
+        index=df.index,
+        name="Stratum",
+    )
+
+
+def hierarchical_cluster_cut(
+    X: np.ndarray, method: str = "ward"
+) -> tuple[np.ndarray, np.ndarray, float, int]:
+    """Corta un dendrograma jerárquico en el mayor salto de distancia de fusión.
+
+    Heurística reproducible para elegir el número de clusters sin fijarlo a
+    mano: ordena las distancias de fusión del *linkage* y corta justo antes
+    del salto más grande entre fusiones consecutivas — el equivalente del
+    método del "codo" aplicado al propio dendrograma, en vez de a una curva
+    de inercia.
+
+    Parameters
+    ----------
+    X : numpy.ndarray
+        Variables estandarizadas (media 0, varianza 1); el corte por
+        distancia solo tiene sentido si todas las variables están en la
+        misma escala.
+    method : str
+        Método de enlace de ``scipy.cluster.hierarchy.linkage``.
+
+    Returns
+    -------
+    tuple
+        ``(Z, labels, cut_distance, k)`` — la matriz de *linkage*, las
+        etiquetas de cluster por fila (1-indexadas), la distancia de corte
+        elegida y el número de clusters resultante.
+    """
+    Z = linkage(X, method=method)
+    merge_distances = Z[:, 2]
+    gaps = np.diff(merge_distances)
+    cut_idx = int(np.argmax(gaps))
+    cut_distance = merge_distances[cut_idx] + gaps[cut_idx] / 2
+    labels = fcluster(Z, t=cut_distance, criterion="distance")
+    k = len(np.unique(labels))
+    return Z, labels, cut_distance, k
