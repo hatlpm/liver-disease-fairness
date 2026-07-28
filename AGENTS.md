@@ -55,6 +55,17 @@ tocar código.
 
 ## Entorno técnico — nota importante
 
+**El `venv/` no viaja por OneDrive** (está en `.gitignore`, como debe ser). En
+cada máquina nueva hay que recrearlo antes de ejecutar cualquier notebook:
+
+```bash
+py -3.12 -m venv venv
+./venv/Scripts/python.exe -m pip install -r requirements.txt
+```
+
+Verificación rápida de que quedó bien: `load_raw_data()` debe devolver un
+DataFrame de **583 × 11** (DoD de la Fase 0).
+
 `jupyter` (el metapaquete completo, con Jupyter Lab) **no se pudo instalar**
 por el límite de rutas largas de Windows, agravado por la ruta anidada de
 OneDrive. En su lugar el entorno usa `ipykernel` + `nbconvert`: suficiente
@@ -69,7 +80,7 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 |------|------|--------|
 | 0 — Setup | `feature/fase-0-setup` → mezclada a `main` | ✅ Cerrada |
 | 1 — Problem Framing | `feature/fase-1-problem-framing` → mezclada a `main` | ✅ Cerrada |
-| 2 — EDA | `feature/fase-2-eda` | ✅ Notebook completo (T1–T5), pendiente de tu revisión y merge a `main` |
+| 2 — EDA | `feature/fase-2-eda` → mezclada a `main` | ✅ Cerrada. **Pendiente:** el usuario aún no revisó en detalle los 2 hallazgos señalados en el checkpoint (error de reconstrucción de `A/G Ratio` ~33% > 0.05; brecha de 9pp en diagnóstico por sexo, Loop A). Revisar con él antes de asumir que están 100% validados. |
 | 3 — Preprocessing | — | ⏳ No iniciada |
 | E — Entregables | — | ⏳ No iniciada |
 
@@ -80,6 +91,9 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 
 - **Decisiones de ingeniería/tooling** (con consecuencias duraderas, ej. por
   qué gitflow por fase, por qué este entorno de notebooks) → `docs/adr/`.
+  A hoy hay tres: `0001-gitflow-por-fase`, `0002-entorno-notebooks-sin-jupyterlab`
+  y `0003-sin-holdout-en-fases-0-3` (por qué no se aparta un holdout ahora y
+  de dónde saldrá el *golden set* más adelante).
 - **Hallazgos de datos que disparan un loop CRISP-DM** (ej. el EDA revela algo
   que obliga a revisar Fase 1 o Fase 3) → `docs/CHANGELOG_iteraciones.md`.
 - **Resultados e interpretación académica** (las 8 tareas del enunciado) →

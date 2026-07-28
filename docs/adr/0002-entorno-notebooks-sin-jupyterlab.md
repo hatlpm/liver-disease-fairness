@@ -44,3 +44,29 @@ Instalar `ipykernel` + `nbconvert` en vez del metapaquete `jupyter`.
   entorno. Si en el futuro hace falta, la vía es habilitar "Windows Long
   Path support" (registro, requiere administrador) y reinstalar `jupyter`
   completo — este ADR quedaría superado por uno nuevo si eso ocurre.
+
+## Addendum 2026-07-27 — el rollback de `jupyter` dejó dos paquetes huérfanos
+
+Al recrear el `venv` en una segunda máquina, `pip install -r requirements.txt`
+falló con **el mismo error de rutas largas**, esta vez sobre
+`venv\share\jupyter\labextensions\@jupyter-widgets\jupyterlab-manager\static\...`.
+pip revierte la transacción completa, así que **no quedó ningún paquete
+instalado** — el entorno era inutilizable, no parcialmente utilizable.
+
+Causa: `requirements.txt` se generó con `pip freeze` después del intento
+fallido de instalar `jupyter`, y arrastró dos paquetes que **solo existen
+para dar soporte a `ipywidgets`** — que no está en el proyecto:
+
+- `jupyterlab_widgets==3.0.16`
+- `widgetsnbextension==4.0.15`
+
+Son exactamente los que traen la extensión `jupyterlab-manager` con las rutas
+kilométricas. Al no depender nada de ellos, **se eliminan de
+`requirements.txt`**; con eso la instalación completa pasa sin habilitar
+soporte de rutas largas. Esto refuerza la decisión original en vez de
+contradecirla: el entorno mínimo (`ipykernel` + `nbconvert`) es el único que
+sobrevive a la ruta de OneDrive.
+
+**Lección operativa:** si en el futuro se regenera `requirements.txt` con
+`pip freeze`, verificar que no reaparezcan paquetes `*widgets*` /
+`*labextension*` antes de commitear.
