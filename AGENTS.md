@@ -80,21 +80,83 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 |------|------|--------|
 | 0 — Setup | `feature/fase-0-setup` → mezclada a `main` | ✅ Cerrada |
 | 1 — Problem Framing | `feature/fase-1-problem-framing` → mezclada a `main` | ✅ Cerrada |
-| 2 — EDA | `feature/fase-2-eda` → mezclada a `main` | ✅ Cerrada. **Pendiente:** el usuario aún no revisó en detalle los 2 hallazgos señalados en el checkpoint (error de reconstrucción de `A/G Ratio` ~33% > 0.05; brecha de 9pp en diagnóstico por sexo, Loop A). Revisar con él antes de asumir que están 100% validados. |
+| 2 — EDA | `feature/fase-2-eda` → mezclada a `main` | ✅ Cerrada (T1–T5, Loop A) |
+| 2b — EDA clínico | `feature/fase-2-eda-clinico` | 🔄 **En curso.** Loop C: lectura clínica del EDA, diccionario de datos, 2 problemas de calidad nuevos (Q8 `DB>TB`, Q9 age heaping), Q7 resuelto, y análisis de sensibilidad de umbrales de ALT por sexo. Pendiente de revisión del usuario y merge. |
 | 3 — Preprocessing | — | ⏳ No iniciada |
 | E — Entregables | — | ⏳ No iniciada |
 
 > Actualiza esta tabla al cerrar cada fase. Es lo primero que debe leer un
 > agente nuevo para saber dónde retomar.
 
+## 🔖 Checkpoint abierto — traspaso del 2026-07-27
+
+**Estado:** el Loop C está **commiteado y completo** en
+`feature/fase-2-eda-clinico`. El notebook ejecuta de punta a punta sin errores
+(44 celdas, verificado con `nbconvert --execute`). **No se ha mezclado a
+`main`** — espera la revisión del usuario.
+
+**Lo primero que debe hacer la sesión nueva:**
+
+1. Recrear el `venv` (ver "Entorno técnico" arriba) — se borra a propósito para
+   que no se sincronice por OneDrive entre máquinas.
+2. `git checkout feature/fase-2-eda-clinico` y leer
+   `docs/CHANGELOG_iteraciones.md` § Loop C — ahí está todo lo que se hizo y
+   por qué.
+3. **Esperar las observaciones del usuario. No avanzar a la Fase 3 sin ellas.**
+
+**Puntos concretos que el usuario va a revisar:**
+
+| # | Qué revisar | Dónde |
+|---|---|---|
+| 1 | ¿La lectura clínica de T1–T5 responde a su crítica de que el EDA "solo cumplía la rúbrica"? | `02_eda.ipynb`, interpretaciones de T1, T3, T4, T5 |
+| 2 | Las 3 filas `DB > TB`: ¿acepta el tratamiento propuesto (marcar **ambas** columnas como faltantes, no eliminar la fila)? | Sección "T2 (cont.)" |
+| 3 | El análisis de sensibilidad de umbrales y su caveat aritmético | Sección "⭐ Análisis de sensibilidad" |
+| 4 | ¿Está de acuerdo con atenuar el argumento De Ritis a "sugiere plausibilidad"? | Sección "Cociente De Ritis" |
+| 5 | El efecto ALP/edad resultó **modesto** (4 vs 2 menores). ¿Le parece bien reportarlo así de honesto? | Sección "`Alkphos` depende de la edad" |
+| 6 | El diccionario de datos completo | `docs/data_dictionary.md` |
+
+**Advertencias para el agente de la sesión nueva:**
+
+- ⚠️ **El usuario no tiene formación clínica.** Explicar desde cero, con
+  redundancia, antes de concluir. Ver el protocolo al final de este archivo.
+- ⚠️ **No commitear ni mezclar sin orden explícita** (convención del proyecto).
+- ⚠️ Si el usuario aprueba, el siguiente paso es mezclar a `main` y abrir
+  `feature/fase-3-preprocessing`. Los mandatos para la Fase 3 ya están escritos
+  en la última celda de `02_eda.ipynb` ("Notas para fases futuras").
+
 ## Dónde está cada tipo de decisión documentada
 
 - **Decisiones de ingeniería/tooling** (con consecuencias duraderas, ej. por
   qué gitflow por fase, por qué este entorno de notebooks) → `docs/adr/`.
-  A hoy hay tres: `0001-gitflow-por-fase`, `0002-entorno-notebooks-sin-jupyterlab`
-  y `0003-sin-holdout-en-fases-0-3` (por qué no se aparta un holdout ahora y
-  de dónde saldrá el *golden set* más adelante).
+  A hoy hay cuatro: `0001-gitflow-por-fase`, `0002-entorno-notebooks-sin-jupyterlab`,
+  `0003-sin-holdout-en-fases-0-3` (por qué no se aparta un holdout ahora y de
+  dónde saldrá el *golden set*) y `0004-umbrales-referencia-sexo-especificos`
+  (qué rangos clínicos se adoptan y por qué).
 - **Hallazgos de datos que disparan un loop CRISP-DM** (ej. el EDA revela algo
   que obliga a revisar Fase 1 o Fase 3) → `docs/CHANGELOG_iteraciones.md`.
+- **Significado clínico de cada variable**, unidades, rangos de referencia y
+  tabla consolidada de problemas de calidad → `docs/data_dictionary.md`.
 - **Resultados e interpretación académica** (las 8 tareas del enunciado) →
   `reports/informe_act1.md`.
+
+## Protocolo de fundamentación clínica (agregado 2026-07-27, Loop C)
+
+El equipo **no tiene formación en salud**. Por eso ninguna afirmación clínica,
+umbral ni criterio metodológico entra al proyecto sin fuente citable. El método
+acordado:
+
+1. Formular una consulta de investigación profunda con **CONSULTA + CONTEXTO**
+   explícitos (qué se pregunta, sobre qué datos, y qué salida se necesita).
+2. Ejecutarla contra fuentes primarias (guías de sociedades médicas, estudios
+   de intervalos de referencia, marcos de calidad de datos).
+3. **Versionar la respuesta completa con sus referencias en `docs/fuentes/`.**
+
+Las cuatro consultas realizadas cubren: rangos de referencia por sexo · ALP
+dependiente de edad · cociente De Ritis · restricciones bioquímicas y calidad
+de captura. **Este protocolo es parte del valor del proyecto, no un andamio
+temporal** — hace cada número auditable.
+
+> ⚠️ **Al explicar hallazgos al usuario:** no asumir conocimiento clínico.
+> Explicar primero qué mide la variable, su unidad y su rango de referencia;
+> después la conclusión; y siempre separar lo que el dato **prueba** de lo que
+> solo **sugiere**.
