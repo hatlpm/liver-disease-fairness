@@ -66,6 +66,12 @@ py -3.12 -m venv venv
 Verificación rápida de que quedó bien: `load_raw_data()` debe devolver un
 DataFrame de **583 × 11** (DoD de la Fase 0).
 
+**Compatibilidad de versión de Python (verificado 2026-07-28):** el entorno
+se probó con **3.12 y 3.13**, ambos instalan `requirements.txt` sin
+conflictos y pasan la verificación de 583×11. Si una máquina nueva no tiene
+3.12 disponible (`py --list` para chequear), usar `py -3.13` sin problema —
+no hace falta forzar la versión exacta.
+
 `jupyter` (el metapaquete completo, con Jupyter Lab) **no se pudo instalar**
 por el límite de rutas largas de Windows, agravado por la ruta anidada de
 OneDrive. En su lugar el entorno usa `ipykernel` + `nbconvert`: suficiente
@@ -81,48 +87,56 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | 0 — Setup | `feature/fase-0-setup` → mezclada a `main` | ✅ Cerrada |
 | 1 — Problem Framing | `feature/fase-1-problem-framing` → mezclada a `main` | ✅ Cerrada |
 | 2 — EDA | `feature/fase-2-eda` → mezclada a `main` | ✅ Cerrada (T1–T5, Loop A) |
-| 2b — EDA clínico | `feature/fase-2-eda-clinico` | 🔄 **En curso.** Loop C: lectura clínica del EDA, diccionario de datos, 2 problemas de calidad nuevos (Q8 `DB>TB`, Q9 age heaping), Q7 resuelto, y análisis de sensibilidad de umbrales de ALT por sexo. Pendiente de revisión del usuario y merge. |
-| 3 — Preprocessing | — | ⏳ No iniciada |
+| 2b — EDA clínico | `feature/fase-2-eda-clinico` → mezclada a `main` (2026-07-28) | ✅ Cerrada. Loop C: lectura clínica del EDA, diccionario de datos, 2 problemas de calidad nuevos (Q8 `DB>TB`, Q9 age heaping), Q7 resuelto, y análisis de sensibilidad de umbrales de ALT por sexo. Aprobada por el usuario sin observaciones. |
+| 3 — Preprocessing | `feature/fase-3-preprocessing` (creada desde `main`) | 🔄 **En planificación.** Rama abierta, sin código todavía — pendiente de acordar el diseño de imputación (ver checkpoint abajo) antes de escribir la primera celda. |
 | E — Entregables | — | ⏳ No iniciada |
 
 > Actualiza esta tabla al cerrar cada fase. Es lo primero que debe leer un
 > agente nuevo para saber dónde retomar.
 
-## 🔖 Checkpoint abierto — traspaso del 2026-07-27
+## 🔖 Checkpoint abierto — traspaso del 2026-07-28
 
-**Estado:** el Loop C está **commiteado y completo** en
-`feature/fase-2-eda-clinico`. El notebook ejecuta de punta a punta sin errores
-(44 celdas, verificado con `nbconvert --execute`). **No se ha mezclado a
-`main`** — espera la revisión del usuario.
+**Estado:** Loop C **aprobado por el usuario sin observaciones**. Se mezcló
+`feature/fase-2-eda-clinico` → `main` (fast-forward, commit `6ace9d2`) y se
+abrió `feature/fase-3-preprocessing` desde `main`. **Todavía no hay código de
+Fase 3** — el usuario pidió confirmar el diseño de imputación antes de
+escribir la primera celda del notebook.
 
-**Lo primero que debe hacer la sesión nueva:**
+**Pendientes concretos para la sesión que retome esto:**
 
-1. Recrear el `venv` (ver "Entorno técnico" arriba) — se borra a propósito para
-   que no se sincronice por OneDrive entre máquinas.
-2. `git checkout feature/fase-2-eda-clinico` y leer
-   `docs/CHANGELOG_iteraciones.md` § Loop C — ahí está todo lo que se hizo y
-   por qué.
-3. **Esperar las observaciones del usuario. No avanzar a la Fase 3 sin ellas.**
-
-**Puntos concretos que el usuario va a revisar:**
-
-| # | Qué revisar | Dónde |
-|---|---|---|
-| 1 | ¿La lectura clínica de T1–T5 responde a su crítica de que el EDA "solo cumplía la rúbrica"? | `02_eda.ipynb`, interpretaciones de T1, T3, T4, T5 |
-| 2 | Las 3 filas `DB > TB`: ¿acepta el tratamiento propuesto (marcar **ambas** columnas como faltantes, no eliminar la fila)? | Sección "T2 (cont.)" |
-| 3 | El análisis de sensibilidad de umbrales y su caveat aritmético | Sección "⭐ Análisis de sensibilidad" |
-| 4 | ¿Está de acuerdo con atenuar el argumento De Ritis a "sugiere plausibilidad"? | Sección "Cociente De Ritis" |
-| 5 | El efecto ALP/edad resultó **modesto** (4 vs 2 menores). ¿Le parece bien reportarlo así de honesto? | Sección "`Alkphos` depende de la edad" |
-| 6 | El diccionario de datos completo | `docs/data_dictionary.md` |
+1. **Python 3.12 no está disponible en esta máquina** (solo 3.13 vía
+   `py --list`). El `venv` se recreó con `py -3.13` en vez de `py -3.12` como
+   indica la sección "Entorno técnico". Falta verificar si esto generó algún
+   conflicto de versiones al instalar `requirements.txt` (pineado
+   originalmente con 3.12) y decidir si se actualiza esa instrucción o si se
+   consigue 3.12 en esta máquina. **No asumir que ambas versiones son
+   intercambiables sin verificarlo.**
+2. **Rama huérfana `main-ZARLAB05`** (de otra máquina, diverge de `main` en
+   `c5eb935`) pendiente de borrar — el usuario está de acuerdo en que debe
+   existir una sola rama por convención, falta la confirmación final para
+   ejecutar `git branch -D main-ZARLAB05`.
+3. **Diseño de imputación para T6 (Fase 3), en discusión:**
+   - `A/G Ratio` (4 filas faltantes: índices 209, 241, 253, 312): **`TP` y
+     `ALB` están presentes en las 4** → se recomienda imputar por fórmula
+     algebraica directa (`ALB / (TP − ALB)`), no por método estadístico. Sin
+     bloqueante.
+   - Las 3 filas `DB > TB` (índices 246, 261, 279) anuladas por Q8: pendiente
+     decidir el método de imputación de comportamiento (p. ej. regresión
+     usando la correlación `TB`↔`DB` de T5) vs. la propuesta del usuario de
+     PCA + clustering por edad-sexo. Ver discusión completa en la
+     conversación del 2026-07-28 — no repetida aquí para no duplicar; el
+     resumen es: PCA no parece necesario (no hay problema de dimensionalidad,
+     los ejes clínicos ya están nombrados en `data_dictionary.md`), y
+     clustering no debería sustituir la estratificación explícita por edad y
+     sexo que T8 ya va a usar, dado el tamaño de muestra (n=3, n=4).
+   - **No escribir código de imputación hasta que el usuario confirme el
+     método.**
 
 **Advertencias para el agente de la sesión nueva:**
 
 - ⚠️ **El usuario no tiene formación clínica.** Explicar desde cero, con
   redundancia, antes de concluir. Ver el protocolo al final de este archivo.
 - ⚠️ **No commitear ni mezclar sin orden explícita** (convención del proyecto).
-- ⚠️ Si el usuario aprueba, el siguiente paso es mezclar a `main` y abrir
-  `feature/fase-3-preprocessing`. Los mandatos para la Fase 3 ya están escritos
-  en la última celda de `02_eda.ipynb` ("Notas para fases futuras").
 
 ## Dónde está cada tipo de decisión documentada
 
