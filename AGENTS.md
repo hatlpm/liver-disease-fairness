@@ -129,8 +129,23 @@ escribir la primera celda del notebook.
      los ejes clínicos ya están nombrados en `data_dictionary.md`), y
      clustering no debería sustituir la estratificación explícita por edad y
      sexo que T8 ya va a usar, dado el tamaño de muestra (n=3, n=4).
-   - **No escribir código de imputación hasta que el usuario confirme el
-     método.**
+   - **Confirmado por el usuario (2026-07-28):** se mantiene la propuesta
+     (fórmula directa + regresión) y **además** se suma un análisis
+     exploratorio de clustering/PCA sobre el perfil bioquímico (idealmente
+     residualizado por edad y estratificado por sexo), con dos objetivos:
+     (a) buscar subgrupos que sugieran distintos patrones de daño/etiología
+     (mismo tratamiento de hipótesis que el cociente De Ritis, nunca prueba),
+     y (b) generar **puntos de corte candidatos derivados del dataset**. El
+     usuario aceptó explícitamente que estos cortes **no son clínicamente
+     validables** con n=583 de un solo hospital — se documentan como señal
+     exploratoria / *feature* candidato para una futura Fase 4+ de modelado,
+     **nunca como reemplazo** de los umbrales de literatura (Prati/ACG/AASLD,
+     ADR 0004) ni como criterio diagnóstico. Aplicar el mismo estándar de
+     honestidad metodológica que el resto del Loop C: reportar el hallazgo
+     con su caveat de validez, no exagerarlo.
+   - **No escribir código todavía** — falta acordar el diseño concreto
+     (qué variables entran al clustering, si se residualiza por edad antes o
+     se estratifica después, qué algoritmo) antes de la primera celda.
 
 **Advertencias para el agente de la sesión nueva:**
 
