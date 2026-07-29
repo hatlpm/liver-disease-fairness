@@ -8,6 +8,7 @@ from src.config import (
     AGE_BANDS,
     ALT_ULN_BY_SEX,
     ALT_ULN_UNISEX,
+    CLUSTER_LINKAGE_METHOD,
     DPI,
     FIGURES_DIR,
     MIN_STRATUM_SIZE_FOR_SEX_SPLIT,
@@ -267,7 +268,9 @@ def assign_age_sex_stratum(df: pd.DataFrame) -> pd.Series:
 
 
 def hierarchical_cluster_cut(
-    X: np.ndarray, method: str = "ward"
+    X: np.ndarray,
+    method: str = CLUSTER_LINKAGE_METHOD,
+    min_cluster_size: int = 1,
 ) -> tuple[np.ndarray, np.ndarray, float, int]:
     """Corta un dendrograma jerárquico en el mayor salto de distancia de fusión.
 
@@ -277,6 +280,13 @@ def hierarchical_cluster_cut(
     método del "codo" aplicado al propio dendrograma, en vez de a una curva
     de inercia.
 
+    ``min_cluster_size`` corrige un fallo conocido de esa heurística: con
+    variables de cola larga, el mayor salto suele ser el de la última fusión
+    —la que une al paciente más extremo con el resto— y el corte "descubre"
+    un cluster de una sola persona, que es un *outlier*, no un grupo. Con el
+    parámetro activo se recorren los saltos de mayor a menor y se toma el
+    primero cuyo cluster más chico alcance el tamaño exigido.
+
     Parameters
     ----------
     X : numpy.ndarray
@@ -285,6 +295,11 @@ def hierarchical_cluster_cut(
         misma escala.
     method : str
         Método de enlace de ``scipy.cluster.hierarchy.linkage``.
+    min_cluster_size : int
+        Tamaño mínimo exigido al cluster más pequeño. Con ``1`` (por defecto)
+        se reproduce la heurística original sin restricción. Si ningún corte
+        cumple el mínimo, se devuelve el del mayor salto y queda a cargo de
+        quien llama reportar los tamaños resultantes.
 
     Returns
     -------
@@ -296,8 +311,37 @@ def hierarchical_cluster_cut(
     Z = linkage(X, method=method)
     merge_distances = Z[:, 2]
     gaps = np.diff(merge_distances)
+
+    # Candidatos ordenados por tamaño de salto, de mayor a menor.
+    for cut_idx in np.argsort(gaps)[::-1]:
+        cut_distance = merge_distances[cut_idx] + gaps[cut_idx] / 2
+        labels = fcluster(Z, t=cut_distance, criterion="distance")
+        smallest = np.bincount(labels)[1:].min()
+        if smallest >= min_cluster_size:
+            return Z, labels, float(cut_distance), len(np.unique(labels))
+
+    # Ningún corte cumple el mínimo: se devuelve el del mayor salto.
     cut_idx = int(np.argmax(gaps))
     cut_distance = merge_distances[cut_idx] + gaps[cut_idx] / 2
     labels = fcluster(Z, t=cut_distance, criterion="distance")
-    k = len(np.unique(labels))
-    return Z, labels, cut_distance, k
+    return Z, labels, float(cut_distance), len(np.unique(labels))
+
+
+def cluster_sizes(labels: np.ndarray) -> list[int]:
+    """Devuelve los tamaños de cada cluster, de mayor a menor.
+
+    Reportarlos siempre evita el error de interpretar como "grupo" lo que en
+    realidad es un individuo aislado por el algoritmo.
+
+    Parameters
+    ----------
+    labels : numpy.ndarray
+        Etiquetas de cluster 1-indexadas, como las devuelve
+        :func:`hierarchical_cluster_cut`.
+
+    Returns
+    -------
+    list of int
+        Tamaños ordenados de mayor a menor.
+    """
+    return sorted(np.bincount(labels)[1:].tolist(), reverse=True)

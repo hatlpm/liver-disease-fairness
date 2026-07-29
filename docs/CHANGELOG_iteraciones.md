@@ -102,3 +102,71 @@ vía De Ritis es **exploratorio, no probatorio** —el cociente refleja también
 estadio de la enfermedad—; (b) el efecto de la confusión ALP/edad resultó
 **modesto en esta muestra** (4 vs 2 menores marcados), y se reporta así en vez
 de exagerarlo.
+
+---
+
+## 2026-07-28 — Revisión de la Fase 2c: el clustering estaba midiendo outliers
+
+**Disparador:** revisión del usuario sobre la primera versión de
+`02c_eda_clustering.ipynb`. Dos observaciones, ambas confirmadas al
+investigarlas:
+
+1. Varios "clusters de severidad" tenían **1, 2 o 4 personas**, y sobre ellos
+   se calculaban medianas y porcentajes ("100% diagnosticado" con n=1).
+2. El notebook se **contradecía**: la tabla de honestidad decía que
+   `60-120 · Female` (n=20) *"se reporta pero no se interpreta"*, y tres
+   celdas antes lo destacaba como uno de los dos hallazgos principales de De
+   Ritis — con una mediana calculada sobre 2 personas.
+
+**Causa raíz (diagnosticada, no supuesta).** El Experimento 1 aplicaba
+`StandardScaler` a las 9 variables **crudas**. Estandarizar centra y escala
+pero **no cambia la forma**: con `Sgot` en *skewness* 10.5, el paciente más
+extremo queda a ~17 desviaciones. Como Ward mide distancias euclidianas, el
+mayor salto del dendrograma es el de **unir a esa persona con el resto**, y
+`hierarchical_cluster_cut` —que corta exactamente en el mayor salto— la
+aislaba como "cluster".
+
+El propio notebook ya contenía el argumento en contra: el Experimento 2
+justificaba `log1p` citando la asimetría documentada en T4, y el Experimento 1
+omitía esa misma transformación sobre las mismas variables.
+
+**Evidencia más contundente.** En `40-59 · Female` con variables crudas,
+**ningún corte del dendrograma** produce clusters donde el más chico llegue a
+5 personas — la función recorre todos los saltos y cae al valor por defecto.
+No es que el corte elegido fuera malo: es que **no existe ningún corte bueno**
+sobre esa estructura sin transformar.
+
+**Decisiones tomadas:**
+
+1. **Experimento 1 se corre en dos variantes** (crudo y `log1p`) y se reportan
+   **ambas**. No se elige la que más guste: la diferencia entre ellas *es* el
+   resultado. Caso extremo, `40-59 · Male` pasa de `[136, 20]` —un subgrupo
+   severo minoritario— a `[78, 78]`, dos mitades parejas. **No es el mismo
+   hallazgo**, y presentar solo uno habría atribuido a los datos algo que
+   depende de una decisión de preprocesamiento.
+2. **`MIN_CLUSTER_SIZE = 5`** en `src/config.py`; `hierarchical_cluster_cut`
+   acepta ahora `min_cluster_size` y recorre los saltos de mayor a menor hasta
+   encontrar un corte que lo cumpla. Nueva función `cluster_sizes()` para que
+   los tamaños se reporten **siempre**.
+3. **`MIN_STRATUM_SIZE_FOR_CLUSTERING = 30`**: se excluyen del clustering
+   `0-17 · ambos sexos` (n=25) y `60-120 · Female` (n=20). No se reportan "con
+   caveat" — simplemente no se les calcula nada.
+4. Tabla de De Ritis con **columna `n` visible** y bandera `n_suficiente`.
+
+**Hallazgo que emerge de la corrección.** Con los estratos de muestra
+suficiente y `log1p`, la diferencia de De Ritis entre el cluster alterado y el
+resto es **consistente en los 5 estratos** (+0.16 a +0.66), cuando antes
+parecía esporádica (2 de 7). Lo que la ocultaba era metodológico, no
+biológico. Sigue sin poder distinguirse severidad de etiología, y **ningún
+estrato cruza el corte clásico de 2.0**.
+
+**Limitación estructural registrada para la Fase 5.** De los dos estratos
+excluidos por muestra insuficiente, uno es el de **mujeres de 60+** (n=20). En
+un proyecto sobre equidad por sexo, el desbalance 441/142 no solo sesgaría a
+un modelo futuro: **impide responder preguntas sobre las mujeres incluso en un
+análisis puramente descriptivo.**
+
+**Impacto sobre la Fase 3.** F3-R14 proponía la transformación logarítmica
+como alternativa **[V]** para las variables asimétricas. Este resultado
+sugiere reforzarla: cualquier método basado en distancias o varianzas sobre
+estas variables sin transformar mide, sobre todo, a los casos extremos.

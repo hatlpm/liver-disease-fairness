@@ -88,7 +88,7 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | 1 — Problem Framing | `feature/fase-1-problem-framing` → mezclada a `main` | ✅ Cerrada |
 | 2 — EDA | `feature/fase-2-eda` → mezclada a `main` | ✅ Cerrada (T1–T5, Loop A) |
 | 2b — EDA clínico | `feature/fase-2-eda-clinico` → mezclada a `main` (2026-07-28) | ✅ Cerrada. Loop C: lectura clínica del EDA, diccionario de datos, 2 problemas de calidad nuevos (Q8 `DB>TB`, Q9 age heaping), Q7 resuelto, y análisis de sensibilidad de umbrales de ALT por sexo. Aprobada por el usuario sin observaciones. |
-| 2c — EDA clustering/PCA | `feature/fase-2c-eda-clustering` (creada desde `main` en `52d2477`) | 🔄 **Primera versión completa, pendiente de revisión profunda del usuario** (la va a hacer en otra máquina, vía OneDrive). Notebook `02c_eda_clustering.ipynb` (19 celdas) ejecuta de punta a punta sin errores. Ver checkpoint abajo para el detalle de qué se hizo y qué falta. |
+| 2c — EDA clustering/PCA | `feature/fase-2c-eda-clustering` (creada desde `main` en `52d2477`) | 🔄 **Revisada tras observaciones del usuario (2026-07-28).** Se corrigieron dos fallos metodológicos: clusters de 1-4 personas (causa: clustering euclídeo sobre variables crudas con asimetría 10) y una contradicción interna sobre `60-120 · Female`. Ahora el Exp 1 se corre en dos variantes (crudo vs `log1p`) como análisis de sensibilidad. Ver CHANGELOG § 2026-07-28. Pendiente de tu visto bueno y merge. |
 | 3 — Preprocessing | `feature/fase-3-preprocessing` (creada desde `main`) | 🔄 **En planificación.** Rama abierta, sin código todavía — pendiente de acordar el diseño de imputación (ver checkpoint abajo) antes de escribir la primera celda. |
 | E — Entregables | — | ⏳ No iniciada |
 
