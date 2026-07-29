@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 from scipy.cluster.hierarchy import fcluster, linkage
+from scipy.stats import mannwhitneyu
 
 from src.config import (
     AGE_BANDS,
@@ -325,6 +326,85 @@ def hierarchical_cluster_cut(
     cut_distance = merge_distances[cut_idx] + gaps[cut_idx] / 2
     labels = fcluster(Z, t=cut_distance, criterion="distance")
     return Z, labels, float(cut_distance), len(np.unique(labels))
+
+
+def cliffs_delta(a: pd.Series, b: pd.Series) -> float:
+    """Delta de Cliff: cuánto se separan dos distribuciones, sin suponer normalidad.
+
+    Es la probabilidad de que un valor tomado al azar de ``a`` supere a uno
+    de ``b``, menos la probabilidad inversa. Va de −1 a +1: **0 significa que
+    las dos distribuciones son indistinguibles**, y los extremos que no se
+    solapan en absoluto. Al basarse en rangos y no en medias, es robusto a la
+    asimetría extrema de estas variables (T4 documenta *skewness* de hasta
+    10.5), donde una diferencia de medias estaría dominada por unos pocos
+    pacientes.
+
+    Referencia habitual de magnitud: |δ| < 0.15 despreciable · 0.15–0.33
+    pequeño · 0.33–0.47 mediano · > 0.47 grande.
+
+    Parameters
+    ----------
+    a, b : pandas.Series
+        Las dos muestras a comparar. Los ``NaN`` se descartan.
+
+    Returns
+    -------
+    float
+        Delta de Cliff en el rango [−1, 1].
+    """
+    a, b = a.dropna(), b.dropna()
+    u, _ = mannwhitneyu(a, b, alternative="two-sided")
+    return 2 * u / (len(a) * len(b)) - 1
+
+
+def separation_by_variable(
+    df: pd.DataFrame, columns: list[str], target: str = "Selector"
+) -> pd.DataFrame:
+    """Ordena las variables por cuánto separan a los dos grupos del target.
+
+    Estadística **descriptiva**: compara la distribución de cada variable
+    entre diagnosticados y no diagnosticados. No entrena ningún modelo ni
+    calcula métricas de clasificación — el límite del §2.3 del PRD para las
+    Fases 0–3 se mantiene.
+
+    ⚠️ ``Selector`` es un *proxy label* (el juicio de un especialista), no la
+    verdad biológica. Una variable que "separa bien" puede estar reflejando
+    **en qué se fijó quien diagnosticó**, no qué mide mejor el daño hepático.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame con las columnas a evaluar y la columna objetivo.
+    columns : list of str
+        Variables numéricas a comparar.
+    target : str
+        Columna objetivo binaria; se compara ``== 1`` contra el resto.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Una fila por variable, ordenada de mayor a menor separación, con las
+        medianas de cada grupo y el delta de Cliff.
+    """
+    positivos = df[df[target] == 1]
+    negativos = df[df[target] != 1]
+    filas = [
+        {
+            "variable": col,
+            "mediana_dx_positivo": round(positivos[col].median(), 2),
+            "mediana_dx_negativo": round(negativos[col].median(), 2),
+            "cliffs_delta": round(cliffs_delta(positivos[col], negativos[col]), 3),
+        }
+        for col in columns
+    ]
+    tabla = pd.DataFrame(filas)
+    tabla["separacion"] = tabla["cliffs_delta"].abs()
+    return (
+        tabla.sort_values("separacion", ascending=False)
+        .reset_index(drop=True)
+        .assign(puesto=lambda t: t.index + 1)
+        .set_index("puesto")
+    )
 
 
 def cluster_sizes(labels: np.ndarray) -> list[int]:
