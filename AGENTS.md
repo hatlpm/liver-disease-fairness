@@ -90,58 +90,50 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | 2b — EDA clínico | `feature/fase-2-eda-clinico` → mezclada a `main` (2026-07-28) | ✅ Cerrada. Loop C: lectura clínica del EDA, diccionario de datos, 2 problemas de calidad nuevos (Q8 `DB>TB`, Q9 age heaping), Q7 resuelto, y análisis de sensibilidad de umbrales de ALT por sexo. Aprobada por el usuario sin observaciones. |
 | 2c — EDA clustering/PCA | `feature/fase-2c-eda-clustering` → mezclada a `main` (2026-07-28) | ✅ Cerrada. Clustering jerárquico edad × sexo, revisado tras observaciones del usuario: se corrigieron los clusters de 1-4 personas (causa: distancias euclídeas sobre variables crudas con asimetría 10) y una contradicción interna. Exp 1 se reporta en dos variantes (crudo vs `log1p`) como análisis de sensibilidad. Incluye control de sesgo del propio análisis (ALT es 4.ª de 9 en separación). Ver CHANGELOG § 2026-07-28. |
 | 3 — Preprocessing | `feature/fase-3-preprocessing` → mezclada a `main` (2026-07-28) | ✅ Cerrada. T6, T7 y T8 completos: 39 celdas, 0 errores, 13/13 requisitos (9 `[M]` + 4 `[V]`). Loop B registrado. Aprobada por el usuario. |
-| E — Entregables | `feature/fase-e-entregables` | 🔄 **En curso.** Falta `act1_anexo.ipynb` (E2) e `informe_act1.md` (E1). Con la Fase 3 cerrada, **las 8 tareas del enunciado ya están respondidas** — la Fase E solo consolida y redacta. |
+| E — Entregables | `feature/fase-e-entregables` | ✅ **Completa.** `act1_anexo.ipynb` (E2, 32 celdas, 0 errores) e `informe_act1` en Markdown, LaTeX y **PDF compilado de 10 páginas exactas**. README de portafolio actualizado. Pendiente de merge a `main`. |
 
 > Actualiza esta tabla al cerrar cada fase. Es lo primero que debe leer un
 > agente nuevo para saber dónde retomar.
 
-## 🔖 Checkpoint abierto — Fase 3 escrita, pendiente de revisión (2026-07-28)
+## 🔖 Checkpoint — Fase E completa, proyecto entregable (2026-07-28)
 
-`notebooks/03_preprocessing.ipynb` está **completo y ejecutado** (39 celdas,
-0 errores) en `feature/fase-3-preprocessing`. **No mezclado a `main`** —
-espera la revisión del usuario.
+**Las 8 tareas del enunciado están respondidas y los dos entregables existen.**
 
-### Las tres decisiones de diseño, ya acordadas con el usuario
+### Entregables
 
-| # | Decisión | Elegida |
+| ID | Archivo | Estado |
 |---|---|---|
-| 1 | 13 duplicados exactos (F3-R13) | **Conservar**, con análisis de sensibilidad |
-| 2 | Los 6 nulos que crea marcar `DB > TB` | **Dejar como faltantes**, no imputar |
-| 3 | `log1p` en T7 | **Tercera columna**, después del comparativo obligatorio |
+| **E1** | `reports/informe_act1.pdf` | **10 páginas exactas**, 0 errores de compilación |
+| E1 (fuentes) | `reports/informe_act1.md` y `.tex` | Mismo contenido y mismos números |
+| **E2** | `notebooks/act1_anexo.ipynb` | 32 celdas, 0 errores, orden literal T1→T8 |
 
-### Resultados principales
+### Entorno LaTeX (agregado 2026-07-28)
 
-- **T6:** la imputación por media falla en 3 de 4 filas (error de hasta 34%
-  contra el valor determinista). *Variance shrinkage* medido: −0.687%.
-  Eliminar los 13 duplicados movería las medias solo +0.70% / +0.77%.
-- **T7:** con MinMax, el **95.9%** de los pacientes de `Sgot` queda bajo 0.1
-  y la mediana en el 0.65% del rango. Conclusión: **Z-Score**.
-- **T8:** 66 atípicos en `Sgot`, 8 en `TP`, **0 en `ALB`**, 10 en
-  `A/G Ratio`. **Ninguno es biológicamente imposible** → se conservan todos.
-- **Loop B registrado** en el CHANGELOG: el umbral único de Tukey subdetecta
-  en mujeres (`Sgot` 7.0% global vs 10.6% propio) y el sesgo etario **se
-  invierte** según la variable.
+**MiKTeX 25.12 instalado** vía `winget` en modo usuario, con `AutoInstall=1`
+para que descargue paquetes de CTAN al vuelo. `pdflatex` está en
+`C:\Users\LENOVO\AppData\Local\Programs\MiKTeX\miktex\bin\x64` y **no en el PATH del sistema** — hay que
+añadirlo en cada sesión:
 
-### Salidas
+```bash
+export PATH="$PATH:/c/Users/LENOVO/AppData/Local/Programs/MiKTeX/miktex/bin/x64"
+cd reports && pdflatex -interaction=nonstopmode informe_act1.tex
+```
 
-3 datasets en `data/processed/` (gitignored, se regeneran al ejecutar):
-`ilpd_procesado.csv`, `ilpd_zscore.csv`, `ilpd_log_zscore.csv`.
-2 figuras nuevas: `fase3_t7_escalado.png`, `fase3_t8_boxplots.png`.
+MiKTeX también trae `pdftoppm`, útil para renderizar el PDF a PNG y revisarlo
+visualmente.
 
-### Qué sigue si el usuario aprueba
+> ⚠️ **Lección registrada:** la estimación de páginas desde el Markdown (11.3)
+> resultó **muy optimista** — el PDF real salió en **14 páginas**. No estimar
+> la extensión sin compilar. Se llegó a 10 con: 10pt, márgenes 1.95 cm,
+> `titlesec`, tablas en `\footnotesize` y figuras al 66–88% del ancho. Los
+> mandos están agrupados y comentados en el preámbulo del `.tex`.
 
-Merge a `main` y arrancar la **Fase E** (entregables): `act1_anexo.ipynb`
-consolidado en orden T1→T8, e `informe_act1.md` (≤10 páginas, sin código,
-con números reales de celdas ejecutadas).
+### Qué queda
 
-### Reutilizable en `src/`
-
-`utils.py`: `age_band_label`, `assign_age_sex_stratum`,
-`hierarchical_cluster_cut`, `cluster_sizes`, `cliffs_delta`,
-`separation_by_variable`, `whipple_index`, `de_ritis_ratio`,
-`flag_biochemical_violations`, `alt_threshold_comparison`.
-`config.py`: umbrales de ALT, rangos de referencia, `SKEWED_COLS`,
-`IQR_MULTIPLIER`, paleta de figuras validada.
+- Merge de `feature/fase-e-entregables` a `main`.
+- Fases 4–7 (modelado, auditoría de *fairness*, pipeline, dashboard):
+  requieren un PRD nuevo. Las notas de traspaso están en la última celda de
+  cada notebook modular.
 
 ### Advertencias permanentes
 
