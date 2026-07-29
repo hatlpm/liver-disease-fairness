@@ -2,6 +2,9 @@
 
 **Actividad 1** · Análisis exploratorio y preparación del *Indian Liver Patient Dataset* (ILPD)
 
+**Repositorio del proyecto:** https://github.com/hatlpm/liver-disease-fairness
+*Notebooks ejecutables, decisiones de diseño documentadas y fuentes bibliográficas versionadas*
+
 ---
 
 ## 1. Introducción y contexto clínico
@@ -396,4 +399,21 @@ En el eje etario el sesgo **se invierte según la variable**: en `Alkphos` el um
 
 ---
 
-*Código reproducible: `notebooks/act1_anexo.ipynb` · Diccionario de datos: `docs/data_dictionary.md` · Iteraciones CRISP-DM: `docs/CHANGELOG_iteraciones.md` · Decisiones de ingeniería: `docs/adr/` · Fuentes: `docs/fuentes/`*
+## Material complementario
+
+Por el límite de extensión, este informe presenta los resultados pero no el desarrollo completo. El repositorio del proyecto contiene el trabajo íntegro, reproducible de principio a fin:
+
+### https://github.com/hatlpm/liver-disease-fairness
+
+| Qué contiene | Por qué puede interesar |
+|---|---|
+| `notebooks/act1_anexo.ipynb` | El código de las ocho tareas en orden literal T1→T8, ejecutado y con salidas |
+| `notebooks/02_eda.ipynb` | Análisis de sensibilidad del umbral de ALT por sexo, y la confusión de `Alkphos` con la edad |
+| `notebooks/02c_eda_clustering.ipynb` | Clustering jerárquico estratificado por edad y sexo; demuestra empíricamente por qué no se pueden derivar umbrales de esta cohorte |
+| `notebooks/03_preprocessing.ipynb` | El desarrollo completo de T6–T8, con los conteos estratificados de valores atípicos |
+| `docs/data_dictionary.md` | Significado clínico, unidades y rangos de referencia de las 11 variables |
+| `docs/CHANGELOG_iteraciones.md` | Los tres *loops* CRISP-DM, con fecha, disparador y decisión tomada |
+| `docs/adr/` | Cuatro decisiones de ingeniería razonadas, incluidas las alternativas descartadas |
+| `docs/fuentes/` | Las consultas bibliográficas que fundamentan cada umbral y criterio citado |
+
+El historial de *commits* documenta el proceso fase por fase, incluidas las correcciones metodológicas: qué se dio por válido, qué se refutó al contrastarlo con las fuentes, y qué conclusiones hubo que atenuar. Todos los *notebooks* pasan *restart & run all* sin errores.

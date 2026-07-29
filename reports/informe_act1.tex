@@ -45,7 +45,13 @@
 
 \begin{document}
 \maketitle
-\vspace{-1.2cm}
+\vspace{-1.1cm}
+\begin{center}
+\small
+\textbf{Repositorio del proyecto:} \url{https://github.com/hatlpm/liver-disease-fairness}\\[0.15em]
+\footnotesize Notebooks ejecutables, decisiones de diseño documentadas y fuentes bibliográficas versionadas
+\end{center}
+\vspace{-0.5cm}
 
 % =====================================================================
 \section{Introducción y contexto clínico}
@@ -576,12 +582,40 @@ En el eje etario el sesgo \textbf{se invierte según la variable}: en \texttt{Al
 \item CLSI EP28-A3c / C28-A3, \textit{Defining, Establishing, and Verifying Reference Intervals in the Clinical Laboratory.}
 \end{itemize}
 
-\vspace{0.6em}
+\vspace{0.4em}
+\section*{Material complementario}
+\normalsize
+Por el límite de extensión, este informe presenta los resultados pero no el
+desarrollo completo. El repositorio del proyecto contiene el trabajo íntegro,
+reproducible de principio a fin:
+
+\vspace{-0.2em}
+\begin{center}
+\large \url{https://github.com/hatlpm/liver-disease-fairness}
+\end{center}
+\vspace{-0.2em}
+
 \footnotesize
-\textit{Código reproducible:} \texttt{notebooks/act1\_anexo.ipynb} \quad
-\textit{Diccionario de datos:} \texttt{docs/data\_dictionary.md} \quad
-\textit{Iteraciones CRISP-DM:} \texttt{docs/CHANGELOG\_iteraciones.md} \quad
-\textit{Decisiones de ingeniería:} \texttt{docs/adr/} \quad
-\textit{Fuentes:} \texttt{docs/fuentes/}
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+\textbf{Qué contiene} & \textbf{Por qué puede interesar} \\
+\midrule
+\texttt{notebooks/act1\_anexo.ipynb} & El código de las ocho tareas en orden literal T1$\rightarrow$T8, ejecutado y con salidas \\
+\texttt{notebooks/02\_eda.ipynb} & Análisis de sensibilidad del umbral de ALT por sexo, y la confusión de \texttt{Alkphos} con la edad \\
+\texttt{notebooks/02c\_eda\_clustering.ipynb} & Clustering jerárquico estratificado por edad y sexo; demuestra empíricamente por qué no se pueden derivar umbrales de esta cohorte \\
+\texttt{notebooks/03\_preprocessing.ipynb} & El desarrollo completo de T6--T8, con los conteos estratificados de valores atípicos \\
+\texttt{docs/data\_dictionary.md} & Significado clínico, unidades y rangos de referencia de las 11 variables \\
+\texttt{docs/CHANGELOG\_iteraciones.md} & Los tres \textit{loops} CRISP-DM, con fecha, disparador y decisión tomada \\
+\texttt{docs/adr/} & Cuatro decisiones de ingeniería razonadas, incluidas las alternativas descartadas \\
+\texttt{docs/fuentes/} & Las consultas bibliográficas que fundamentan cada umbral y criterio citado \\
+\bottomrule
+\end{tabularx}
+
+\vspace{0.3em}
+\normalsize
+El historial de \textit{commits} documenta el proceso fase por fase, incluidas
+las correcciones metodológicas: qué se dio por válido, qué se refutó al
+contrastarlo con las fuentes, y qué conclusiones hubo que atenuar. Todos los
+\textit{notebooks} pasan \textit{restart \& run all} sin errores.
 
 \end{document}
