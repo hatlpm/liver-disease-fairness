@@ -89,8 +89,8 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | 2 — EDA | `feature/fase-2-eda` → mezclada a `main` | ✅ Cerrada (T1–T5, Loop A) |
 | 2b — EDA clínico | `feature/fase-2-eda-clinico` → mezclada a `main` (2026-07-28) | ✅ Cerrada. Loop C: lectura clínica del EDA, diccionario de datos, 2 problemas de calidad nuevos (Q8 `DB>TB`, Q9 age heaping), Q7 resuelto, y análisis de sensibilidad de umbrales de ALT por sexo. Aprobada por el usuario sin observaciones. |
 | 2c — EDA clustering/PCA | `feature/fase-2c-eda-clustering` → mezclada a `main` (2026-07-28) | ✅ Cerrada. Clustering jerárquico edad × sexo, revisado tras observaciones del usuario: se corrigieron los clusters de 1-4 personas (causa: distancias euclídeas sobre variables crudas con asimetría 10) y una contradicción interna. Exp 1 se reporta en dos variantes (crudo vs `log1p`) como análisis de sensibilidad. Incluye control de sesgo del propio análisis (ALT es 4.ª de 9 en separación). Ver CHANGELOG § 2026-07-28. |
-| 3 — Preprocessing | `feature/fase-3-preprocessing` | 🔄 **Notebook completo (T6, T7, T8), pendiente de tu revisión y merge.** 39 celdas, 0 errores, los 13 requisitos de la fase cubiertos (9 `[M]` + 4 `[V]`). Loop B registrado. Ver checkpoint abajo. |
-| E — Entregables | — | ⏳ No iniciada |
+| 3 — Preprocessing | `feature/fase-3-preprocessing` → mezclada a `main` (2026-07-28) | ✅ Cerrada. T6, T7 y T8 completos: 39 celdas, 0 errores, 13/13 requisitos (9 `[M]` + 4 `[V]`). Loop B registrado. Aprobada por el usuario. |
+| E — Entregables | `feature/fase-e-entregables` | 🔄 **En curso.** Falta `act1_anexo.ipynb` (E2) e `informe_act1.md` (E1). Con la Fase 3 cerrada, **las 8 tareas del enunciado ya están respondidas** — la Fase E solo consolida y redacta. |
 
 > Actualiza esta tabla al cerrar cada fase. Es lo primero que debe leer un
 > agente nuevo para saber dónde retomar.
