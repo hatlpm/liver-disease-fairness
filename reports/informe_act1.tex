@@ -1,0 +1,587 @@
+% =====================================================================
+%  Actividad 1 - Tratamiento de datos para la prediccion de
+%  enfermedades hepaticas (ILPD)
+%
+%  Compilar con pdfLaTeX. Probado para Overleaf.
+%  Las figuras se leen de ./figures/ (este archivo vive en reports/).
+% =====================================================================
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot,es-noquoting,es-tabla]{babel}
+\usepackage[top=1.8cm,bottom=1.8cm,left=1.95cm,right=1.95cm]{geometry}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\usepackage[compact]{titlesec}
+
+\graphicspath{{figures/}}
+
+\titlespacing*{\section}{0pt}{1.1ex plus .2ex}{0.7ex plus .1ex}
+\titlespacing*{\subsection}{0pt}{0.9ex plus .2ex}{0.4ex plus .1ex}
+\titleformat{\section}{\normalfont\large\bfseries}{\thesection.}{0.6em}{}
+\titleformat{\subsection}{\normalfont\normalsize\bfseries}{\thesubsection.}{0.5em}{}
+
+% --- Ajustes de compacidad (subir/bajar si sobran o faltan paginas) ---
+\captionsetup{font=footnotesize,labelfont=bf,skip=3pt}
+\setlist{nosep,leftmargin=1.4em}
+\setlength{\parskip}{0.24em}
+\setlength{\parindent}{0pt}
+\renewcommand{\arraystretch}{1.04}
+
+% Columna X centrada, para tablas numericas
+\newcolumntype{C}{>{\centering\arraybackslash}X}
+
+\title{\vspace{-1.6cm}\textbf{Tratamiento de datos para la predicción\\de enfermedades hepáticas}}
+\author{Actividad 1 --- Análisis exploratorio y preparación del \\
+\textit{Indian Liver Patient Dataset} (ILPD)}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-1.2cm}
+
+% =====================================================================
+\section{Introducción y contexto clínico}
+
+El hígado no duele. La enfermedad hepática crónica avanza durante años sin síntomas evidentes, y cuando aparecen los signos visibles ---ictericia, ascitis--- el daño suele ser ya avanzado e irreversible. El diagnóstico temprano depende, por tanto, casi por completo de un \textbf{panel de análisis de sangre}.
+
+Este trabajo analiza el \textbf{ILPD}, 583 registros de pacientes del noreste de Andhra Pradesh (India), donado al repositorio UCI en 2012 por Ramana, Prasad Babu y Venkateswarlu (DOI 10.24432/C5D02C).
+
+\subsection{Qué miden las variables: los tres trabajos del hígado}
+
+Las nueve variables numéricas miden \textbf{tres funciones distintas}, y la dirección de la alarma no es la misma en las tres.
+
+\begin{table}[H]
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l l X c@{}}
+\toprule
+\textbf{Eje} & \textbf{Variables} & \textbf{Qué mide} & \textbf{Alarma} \\
+\midrule
+Daño celular & \texttt{Sgpt}, \texttt{Sgot} & Enzimas del interior de la célula hepática que se derraman a la sangre cuando esta se rompe. ALT es casi exclusiva del hígado; AST existe también en corazón y músculo & \textbf{Alto} \\
+Excreción biliar & \texttt{TB}, \texttt{DB}, \texttt{Alkphos} & Desechos que el hígado debería eliminar por la bilis, y la enzima de los conductos biliares. \texttt{DB} es la fracción de \texttt{TB} ya procesada & \textbf{Alto} \\
+Función sintética & \texttt{TP}, \texttt{ALB}, \texttt{A/G Ratio} & Proteínas que el hígado fabrica. Al tener vida media larga, reflejan daño \textbf{crónico} & \textbf{Bajo} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Esta agrupación no es decorativa: \textbf{explica la estructura de correlaciones (sección 6) y el patrón de asimetría (sección 5)} sin invocar hallazgos empíricos.
+
+\subsection{La variable objetivo}
+
+\texttt{Selector} codifica el diagnóstico: \textbf{1 = paciente hepático, 2 = no hepático}. Tres advertencias condicionan todo el análisis:
+
+\begin{enumerate}
+\item \textbf{No es verdad biológica, sino el juicio de un especialista} en un hospital concreto. Un modelo entrenado sobre ella no aprende \textit{``quién tiene enfermedad hepática''} sino \textit{``a quién le diagnosticaron enfermedad hepática ahí''}: es un \textbf{\textit{proxy label}} y hereda los sesgos de ese sistema.
+\item \textbf{No codifica ninguna enfermedad concreta.} El dataset no registra alcohol ni hepatitis viral, de modo que solo puede aprenderse la firma bioquímica del daño, nunca su causa.
+\item \textbf{La codificación es contraintuitiva:} el valor 1 corresponde al caso positivo.
+\end{enumerate}
+
+\subsection{Alcance}
+
+Se cubren las ocho tareas del enunciado. \textbf{No se entrena ningún modelo ni se calculan métricas de clasificación.} El código que produce cada número está en \texttt{notebooks/act1\_anexo.ipynb}; \textbf{ningún valor de este informe es estimado}.
+
+% =====================================================================
+\section{Descripción del dataset (T1)}
+
+El archivo es un \textbf{CSV delimitado por comas} de \textbf{583 filas $\times$ 11 columnas}, con un consumo de memoria de $\approx$76~KB.
+
+\begin{table}[H]
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l c X@{}}
+\toprule
+\textbf{Categoría} & \textbf{Cantidad} & \textbf{Variables} \\
+\midrule
+Numéricas & 9 & \texttt{Age}, \texttt{TB}, \texttt{DB}, \texttt{Alkphos}, \texttt{Sgpt}, \texttt{Sgot}, \texttt{TP}, \texttt{ALB}, \texttt{A/G Ratio} \\
+Categórica & 1 & \texttt{Gender} (\textit{Male} / \textit{Female}) \\
+Objetivo & 1 & \texttt{Selector} (1 / 2) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Los tipos se reparten entre \texttt{int64} (\texttt{Age}, \texttt{Alkphos}, \texttt{Sgpt}, \texttt{Sgot}, \texttt{Selector}) y \texttt{float64} (\texttt{TB}, \texttt{DB}, \texttt{TP}, \texttt{ALB}, \texttt{A/G Ratio}), reflejando cómo reporta el laboratorio: enzimas en unidades enteras, concentraciones bioquímicas con decimales. No hay columnas de identificador ni de fecha, lo que impide cualquier análisis longitudinal.
+
+\textbf{Composición:} 416 pacientes hepáticos y 167 no hepáticos; 441 hombres y 142 mujeres. El significado clínico completo de cada variable está en \texttt{docs/data\_dictionary.md}.
+
+% =====================================================================
+\section{Problemas de calidad detectados (T2)}
+
+La auditoría identificó \textbf{nueve problemas}. Los seis primeros se detectan con inspección columna a columna; los tres últimos solo aparecen al cruzar variables o contrastar contra documentación externa.
+
+\begin{table}[H]
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}c X l@{}}
+\toprule
+\textbf{\#} & \textbf{Problema} & \textbf{Valor} \\
+\midrule
+Q1 & Dimensiones & 583 $\times$ 11 \\
+Q2 & Valores faltantes & \textbf{4}, todos en \texttt{A/G Ratio} (0.7\%) \\
+Q3 & Filas duplicadas exactas & \textbf{13} (570 únicas) \\
+Q4 & Desbalance de clase & 416 / 167 $\approx$ \textbf{71 / 29} \\
+Q5 & Desbalance de sexo & 441 / 142 $\approx$ \textbf{76 / 24} \\
+Q6 & Codificación del objetivo & \texttt{Selector} $\in \{1,2\}$, con \textbf{1 = enfermo} \\
+Q7 & \textbf{Censura de la edad} & \texttt{Age = 90} significa \textbf{``$\geq$ 90''} \\
+Q8 & \textbf{Violación bioquímica} & \textbf{3 filas} con \texttt{DB > TB} \\
+Q9 & \textbf{Age heaping} & Índice de Whipple \textbf{163.3} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+El desbalance de clase implica que la \textit{accuracy} será engañosa en cualquier modelado futuro: un clasificador que respondiera ``todos enfermos'' acertaría el 71\% sin aprender nada. El desbalance de sexo es la raíz técnica del sesgo documentado por Straw \& Wu (2022), y se retoma en la sección 10.
+
+\textit{Nota:} la ficha oficial de UCI declara \textbf{``Missing values: No''}, en contradicción con el archivo real. Se audita el dato, no la metadata.
+
+\subsection{Los tres problemas que requieren análisis}
+
+\textbf{Q7 --- la edad máxima no es una edad.} La documentación de UCI establece que \textit{``any patient whose age exceeded 89 is listed as being of age `90'''}. Hay \textbf{un solo paciente} con \texttt{Age = 90} y \textbf{ninguno entre 86 y 89}: es un tope administrativo por anonimización, de modo que el rango observado 4--90 \textbf{no es un rango real de edades}.
+
+\textbf{Q8 --- tres filas bioquímicamente imposibles.} La bilirrubina directa es una \textit{fracción} de la total, de modo que \texttt{DB} $\leq$ \texttt{TB} se cumple por definición. Tres filas la violan: \texttt{TB}=1.8 con \texttt{DB}=9.0, \texttt{TB}=1.5 con \texttt{DB}=7.0 y \texttt{TB}=1.0 con \texttt{DB}=1.4. Son invisibles a un chequeo univariado ---un \texttt{DB} de 9.0 es plausible \textbf{por sí solo}, dentro del rango de la columna--- y el error solo existe \textbf{en relación con \texttt{TB}}. La bioquímica clínica atribuye esta discordancia a interferencia analítica, \textbf{nunca a fisiología real}.
+
+\textbf{Q9 --- las edades no se leyeron de un documento.} El índice de Whipple cuantifica el \textit{age heaping}: la acumulación artificial de edades terminadas en 0 o 5 que ocurre cuando la edad se estima en lugar de verificarse. El valor obtenido, \textbf{163.3}, corresponde a la categoría \textbf{``Tosca''} de la escala de Naciones Unidas e indica un \textbf{63\% más de personas en edades redondas} de las esperables. \texttt{Age} arrastra por tanto un error de $\pm$2--3 años y no admite franjas etarias estrechas.
+
+\subsection{Decisión sobre los duplicados}
+
+Caben dos explicaciones ---pacientes distintos con analítica idéntica, o error de captura--- y el dataset no permite distinguirlas. Se midió el impacto antes de decidir:
+
+\begin{table}[H]
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}X c c@{}}
+\toprule
+\textbf{Métrica} & \textbf{Con duplicados (583)} & \textbf{Sin duplicados (570)} \\
+\midrule
+Media de \texttt{TB} & 3.299 & 3.322 (\textbf{+0.70\%}) \\
+Media de \texttt{DB} & 1.486 & 1.498 (\textbf{+0.77\%}) \\
+Mediana e IQR de ambas & --- & \textbf{sin cambio} \\
+Tasa de diagnóstico positivo & 71.36\% & 71.23\% \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{Se conservan las 583 filas.} El argumento de ``error de captura'' ---lo improbable de coincidir en nueve variables--- se debilita al considerar que \texttt{TP} y \texttt{ALB} vienen redondeadas a un decimal, lo que hace las coincidencias plausibles. Sin evidencia de error y con impacto despreciable, eliminar datos potencialmente reales no está justificado; además es la opción reversible.
+
+Los duplicados están \textbf{sobrerrepresentados en hombres} (84.6\% frente al 75.6\% de la muestra). Sobre 26 filas no admite lectura estadística, pero confirma que cualquier decisión sobre ellos afecta más a un sexo que al otro.
+
+% =====================================================================
+\section{Estadística descriptiva de \texttt{TB} y \texttt{DB} (T3)}
+
+\begin{table}[H]
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l CCCCCC@{}}
+\toprule
+\textbf{Variable} & \textbf{Media} & \textbf{Mediana} & \textbf{Desv. est.} & \textbf{Varianza} & \textbf{Rango} & \textbf{IQR} \\
+\midrule
+\texttt{TB} & 3.299 & 1.000 & 6.210 & 38.558 & 74.60 & 1.80 \\
+\texttt{DB} & 1.486 & 0.300 & 2.808 & 7.888 & 19.60 & 1.10 \\
+\bottomrule
+\end{tabularx}
+\caption*{\footnotesize Calculados sobre datos originales sin imputar: la imputación por media reduce artificialmente la varianza y distorsionaría lo que esta tarea mide. Rangos: \texttt{TB} 0.4--75.0; \texttt{DB} 0.1--19.7.}
+\end{table}
+
+\textbf{La media es un mal resumen de estas variables.} En ambas supera ampliamente a la mediana (\texttt{TB}: 3.30 frente a 1.00; \texttt{DB}: 1.49 frente a 0.30), separación que constituye la firma numérica de una \textbf{cola derecha larga}: unos pocos pacientes con bilirrubina muy elevada arrastran la media mientras la mayoría se concentra en valores bajos. La media describe a un paciente promedio que prácticamente no existe en la muestra.
+
+\textbf{La dispersión está concentrada, no repartida.} El rango de \texttt{TB} (74.6) equivale a \textbf{41 veces} su IQR (1.8); el de \texttt{DB} (19.6), a \textbf{18 veces} el suyo (1.1). El IQR describe dónde vive el 50\% central de los pacientes, y que el rango lo supere en decenas de veces indica que \textbf{un número reducido de casos extremos estira la distribución muy por encima del grueso de los datos}. La varianza de 38.558 en \texttt{TB} no refleja una población heterogénea, sino una minoría muy alejada.
+
+\textbf{La mitad de la muestra tiene bilirrubina normal.} Contra el rango de referencia adulto (\texttt{TB}: 0.3--1.2~mg/dL), la mediana de 1.00 queda \textbf{dentro de lo normal} y la de \texttt{DB} justo en el límite. En un dataset donde el 71\% está etiquetado como hepático, esto indica que la ictericia ---signo tardío--- \textbf{no es el mecanismo por el que se diagnosticó a la mayoría}.
+
+\textbf{Consecuencia práctica:} mediana e IQR describen mejor a esta población que media y desviación estándar. Y los extremos no son ruido: un \texttt{TB} de 75.0 ---62 veces el techo normal--- es el paciente más severo de la cohorte, precisamente el caso que un cribado debe detectar.
+
+% =====================================================================
+\section{Forma y simetría de las distribuciones (T4)}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.66\textwidth]{t4_hist_bilirubin_enzymes.png}
+\caption{Distribuciones de \texttt{TB}, \texttt{DB}, \texttt{Alkphos} y \texttt{Sgpt} (n=583).}
+\end{figure}
+
+Las cuatro distribuciones presentan el mismo patrón: \textbf{una barra alta cerca de cero y una cola larga hacia la derecha}.
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Variable} & \textbf{\textit{Skewness}} & \textbf{\textit{Kurtosis} (Fisher)} \\
+\midrule
+\texttt{TB} & \textbf{4.91} & 37.16 \\
+\texttt{DB} & \textbf{3.21} & 11.35 \\
+\texttt{Alkphos} & \textbf{3.77} & 17.75 \\
+\texttt{Sgpt} & \textbf{6.55} & 50.58 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Todas presentan asimetría positiva fuerte y curtosis muy por encima de 0 ---la referencia de una normal---, lo que indica colas considerablemente más pesadas. \texttt{Sgot}, no graficada, es la más extrema de las nueve: \textit{skewness} \textbf{10.55} y \textit{kurtosis} \textbf{150.92}.
+
+\textbf{La asimetría sigue el eje funcional.} Al ordenar las nueve variables por \textit{skewness}, el resultado \textbf{reproduce exactamente la agrupación clínica} de la sección 1.1: daño celular (\texttt{Sgot} 10.55, \texttt{Sgpt} 6.55) $\rightarrow$ excreción biliar (\texttt{TB} 4.91, \texttt{Alkphos} 3.77, \texttt{DB} 3.21) $\rightarrow$ función sintética (\texttt{A/G Ratio} 0.99, \texttt{TP} $-$0.29, \texttt{ALB} $-$0.04).
+
+\textbf{La explicación es fisiológica, no estadística.} Los dos primeros ejes miden \textbf{fugas y acumulaciones}: cuando una célula hepática se rompe vierte su contenido enzimático de golpe, y los valores pueden multiplicarse por 10 o por 100 en días, sin techo biológico cercano ---de ahí el máximo de 4929~U/L en \texttt{Sgot} frente a una mediana de 42. El tercer eje mide \textbf{capacidad de producción} y funciona al revés: la albúmina no puede dispararse porque el hígado tiene un límite de fabricación, y cuando falla desciende lentamente. Una variable acotada por arriba y de cambio lento produce la distribución simétrica y estrecha observada.
+
+\textbf{Esta asimetría es señal clínica, no ruido}, y su consecuencia práctica es asimétrica: en los ejes 1 y 2 \textbf{la cola derecha es la señal}, mientras que en el eje 3 lo es el extremo \textbf{izquierdo} y, al ser la distribución estrecha, una caída pequeña de \texttt{ALB} puede ser clínicamente más grave que un pico grande de \texttt{Sgpt}. Un tratamiento de atípicos que aplique la misma regla a las nueve variables ignora esta diferencia.
+
+% =====================================================================
+\section{Análisis de correlación (T5)}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.70\textwidth]{t5_heatmap_correlacion.png}
+\caption{Matrices de correlación de Pearson y Spearman (9 variables numéricas, n=583).}
+\end{figure}
+
+Se calcularon \textbf{Pearson} (relación lineal) y \textbf{Spearman} (relación monótona). Dada la asimetría documentada, Spearman es la referencia más confiable. Tres pares superan $|r| > 0.7$:
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}lccl@{}}
+\toprule
+\textbf{Par} & \textbf{Pearson} & \textbf{Spearman} & \textbf{Eje funcional} \\
+\midrule
+\texttt{TB} $\leftrightarrow$ \texttt{DB} & \textbf{0.875} & \textbf{0.959} & Excreción biliar \\
+\texttt{Sgpt} $\leftrightarrow$ \texttt{Sgot} & \textbf{0.792} & 0.774 & Daño celular \\
+\texttt{TP} $\leftrightarrow$ \texttt{ALB} & \textbf{0.784} & 0.779 & Función sintética \\
+\bottomrule
+\end{tabular}
+\caption*{\footnotesize Justo bajo el umbral, \texttt{ALB} $\leftrightarrow$ \texttt{A/G Ratio} alcanza 0.690 / 0.754.}
+\end{table}
+
+\textbf{Dos de los tres no son hallazgos.} Los pares que superan el umbral \textbf{son exactamente los tres ejes funcionales}, y correlacionan porque miden lo mismo por construcción:
+
+\begin{table}[H]
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l l X c@{}}
+\toprule
+\textbf{Tipo} & \textbf{Par} & \textbf{Origen} & \textbf{¿Hallazgo?} \\
+\midrule
+Contención & \texttt{TB} $\leftrightarrow$ \texttt{DB} & \texttt{DB} es una \textbf{fracción física} de \texttt{TB} & No: definicional \\
+Algebraica & \texttt{TP} / \texttt{ALB} / \texttt{A/G} & \texttt{A/G Ratio} = \texttt{ALB} / (\texttt{TP} $-$ \texttt{ALB}) & No: aritmética \\
+Fisiológica & \texttt{Sgpt} $\leftrightarrow$ \texttt{Sgot} & Dos enzimas distintas ante el mismo daño & \textbf{Sí: el único} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Presentar \texttt{TB} $\leftrightarrow$ \texttt{DB} = 0.96 como un descubrimiento equivaldría a descubrir que el total de una factura correlaciona con uno de sus renglones. En cambio, que \texttt{Sgpt} y \texttt{Sgot} correlacionen a 0.79 y no a 0.99 es lo relevante: \textbf{la parte donde divergen lleva información sobre el tipo de daño}.
+
+\subsection*{Influencia en la selección de características}
+
+\begin{table}[H]
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Grupo} & \textbf{Conservar} & \textbf{Justificación} \\
+\midrule
+\texttt{TB} / \texttt{DB} & \texttt{TB} & Con Spearman 0.96 retiene casi toda la señal ordinal de \texttt{DB}, que está contenida en ella; es además el marcador de cribado más usado \\
+\texttt{Sgpt} / \texttt{Sgot} & Ambas, con reserva & Correlación alta pero \textbf{no estructural}. Straw \& Wu (2022) muestran que \textbf{pesan distinto según el sexo} (4.\textordmasculine--5.\textordmasculine{} en mujeres frente a 7.\textordmasculine--8.\textordmasculine{} en hombres): descartar una borraría señal relevante para el análisis de equidad. Evaluar VIF antes de decidir \\
+\texttt{TP} / \texttt{ALB} / \texttt{A/G} & \texttt{ALB} y \texttt{A/G Ratio} & \texttt{ALB} es el marcador de síntesis más directo; \texttt{A/G Ratio} ya combina las otras dos. \texttt{TP} es la más redundante \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Al ser \texttt{A/G Ratio} función de \texttt{ALB} y \texttt{TP}, no aporta información nueva sino una \textbf{transformación} de información existente: conservar las tres produciría multicolinealidad severa en cualquier modelo lineal.
+
+\textbf{Lectura general:} correlación alta entre predictores significa \textbf{redundancia}, no causalidad --- y aquí \textbf{dos de los tres pares son redundancia por definición, no por evidencia empírica}.
+
+% =====================================================================
+\section{Imputación de valores faltantes (T6)}
+
+\subsection{Paso previo: dos tipos distintos de ``faltante''}
+
+Antes de imputar se marcaron como faltantes, en \textbf{ambas columnas}, las 3 filas con \texttt{DB > TB}. No hay evidencia de cuál valor es erróneo ---corregir uno sería inventar--- y eliminar la fila descartaría el resto de la analítica de esos pacientes, que sí es válida. La operación eleva los faltantes de 4 a 10, de naturaleza distinta: \textbf{4 nunca medidos} (\texttt{A/G Ratio}) y \textbf{6 medidos pero imposibles} (\texttt{TB}, \texttt{DB}).
+
+\subsection{Proceso aplicado}
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}llcc@{}}
+\toprule
+\textbf{Estrategia} & \textbf{Variable} & \textbf{Filas afectadas} & \textbf{Valor} \\
+\midrule
+Media (\texttt{SimpleImputer}) & \texttt{A/G Ratio} & \textbf{4} & \textbf{0.95} \\
+Moda (\texttt{SimpleImputer}) & \texttt{Gender} & \textbf{0} & moda = \texttt{Male} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La media se calculó sobre las 579 filas con dato: \textbf{0.947064}. La imputación por moda es un \textbf{\textit{no-op}}: \texttt{Gender} no tiene faltantes, de modo que no alteró ninguna fila. Se implementa igualmente porque el enunciado la exige y deja el pipeline preparado para datos futuros; declararlo es preferible a presentar como efectivo un paso que no hizo nada.
+
+\textbf{Los 6 faltantes de \texttt{TB}/\texttt{DB} se dejan sin imputar.} Son valores \textbf{medidos mal}, no ausentes, y rellenarlos con la media apilaría una invención sobre un error de laboratorio. Además, imputar destruye el registro de que eran desconocidos: se puede imputar después, no des-imputar.
+
+\subsection{El defecto de la media, medido}
+
+\textbf{Reducción artificial de la varianza (\textit{variance shrinkage}).} Añadir cuatro observaciones exactamente en el centro reduce la dispersión: la varianza cae de \textbf{0.102139 a 0.101437} (\textbf{$-$0.687\%}) mientras \textbf{la media no cambia en absoluto} (0.9471). Con un 0.7\% de faltantes el efecto es pequeño, pero \textbf{siempre va en la misma dirección}. Es la razón por la que los estadísticos de la Tarea 3 se reportan sobre datos originales.
+
+\textbf{La media falla en 3 de las 4 filas.} \texttt{A/G Ratio} no es una medición independiente: se calcula como \texttt{ALB} / (\texttt{TP} $-$ \texttt{ALB}), y ambos insumos \textbf{sí están medidos} en esas filas.
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}cccccc@{}}
+\toprule
+\textbf{Fila} & \textbf{\texttt{TP}} & \textbf{\texttt{ALB}} & \textbf{Valor calculado} & \textbf{Media asigna} & \textbf{Error} \\
+\midrule
+209 & 6.6 & 3.9 & \textbf{1.44} & 0.95 & \textbf{34.0\%} \\
+241 & 6.5 & 3.1 & 0.91 & 0.95 & 4.4\% \\
+253 & 5.2 & 2.7 & \textbf{1.08} & 0.95 & 12.0\% \\
+312 & 8.5 & 4.8 & \textbf{1.30} & 0.95 & 26.9\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Solo la fila 241 queda próxima, y por casualidad: ese paciente está cerca del promedio de la cohorte. La imputación por media \textbf{asigna el mismo número a todos, ignorando la información disponible de cada paciente}; en el caso 209 el error alcanza el 34\%, en la dirección de sugerir peor función hepática de la real.
+
+Con honestidad metodológica, \textbf{la fórmula tampoco es exacta}: sobre las 579 filas con dato, el error absoluto medio es \textbf{0.0514} y el \textbf{33.0\%} supera 0.05, porque \texttt{TP} y \texttt{ALB} vienen redondeadas a un decimal y dividir cantidades redondeadas amplifica el error relativo.
+
+\subsection{Ventajas y desventajas de las técnicas de imputación}
+
+\begin{table}[H]
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l X X@{}}
+\toprule
+\textbf{Técnica} & \textbf{Ventajas} & \textbf{Desventajas} \\
+\midrule
+Media & Trivial de implementar; no altera la media & \textbf{Reduce la varianza}; \textbf{distorsiona correlaciones}; ignora el resto de la fila; sensible a extremos \\
+Mediana & Lo anterior, pero \textbf{robusta a extremos} & Mismos problemas de varianza y correlaciones \\
+Moda & Única opción simple para categóricas & \textbf{Refuerza el desbalance} de la clase mayoritaria \\
+Determinista & \textbf{Usa la información real de cada fila} & Requiere que exista la relación; propaga el error de sus insumos; división por cero \\
+KNN / MICE & Aprovecha la estructura multivariante & Costosa; puede filtrar información del test \\
+Eliminar filas & No inventa ningún valor & \textbf{Pierde datos}; \textbf{sesga la muestra} si los faltantes no son aleatorios \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{La desventaja de fondo}, común a media, mediana y moda: \textbf{tratan a todos los pacientes como intercambiables}. Asignan el mismo valor a una mujer de 30 años y a un hombre de 70, pese a que los rangos de referencia difieren por sexo y edad. Con 4 faltantes el efecto es despreciable, pero escala: con muchos huecos, imputar por media \textbf{homogeneizaría artificialmente los subgrupos}, y más sobre el minoritario, que aporta menos observaciones al promedio.
+
+\textbf{Jerarquía de calidad:} determinista $>$ KNN/MICE $>$ media/mediana $>$ eliminación. Cabe señalar que \textbf{el estudio que publicó este dataset empleó imputación por media}; existiendo una relación algebraica exacta, constituye una limitación metodológica identificable.
+
+\subsection{Ventajas y desventajas de las técnicas de normalización}
+
+\begin{table}[H]
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l X X@{}}
+\toprule
+\textbf{Técnica} & \textbf{Ventajas} & \textbf{Desventajas} \\
+\midrule
+MinMax & Rango acotado y predecible; preserva la forma & \textbf{Muy sensible a extremos}: un solo caso alto infla el denominador; valores nuevos se salen de [0, 1] \\
+Z-Score & \textbf{Más robusto a extremos}; comparable entre variables & Media y desviación tampoco son robustas; resultado no acotado \\
+\texttt{log1p} + escalado & \textbf{Ataca la causa}: comprime la cola & Cambia la interpretación; solo para valores positivos \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+La diferencia conceptual: MinMax responde \textit{``¿dónde está este paciente entre el mínimo y el máximo observados?''}; Z-Score, \textit{``¿a cuántas desviaciones del promedio está?''}. La primera depende de \textbf{dos} pacientes; la segunda, de toda la distribución. \textbf{La demostración numérica está en la sección siguiente.}
+
+% =====================================================================
+\section{Normalización de datos (T7)}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.88\textwidth]{fase3_t7_escalado.png}
+\caption{Efecto de cada escalado sobre las nueve variables, ordenadas por asimetría.}
+\end{figure}
+
+\textbf{Por qué escalar.} Las variables viven en escalas incomparables: \texttt{Alkphos} alcanza 2110 mientras \texttt{ALB} se mueve entre 0.9 y 5.5. Sin ajustar, cualquier método basado en distancias o gradientes trataría a \texttt{Alkphos} como cientos de veces más importante --- un \textbf{artefacto de las unidades}, no de la relevancia clínica.
+
+\subsection{La evidencia: dónde queda la mediana}
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Variable} & \textbf{\textit{Skew}} & \textbf{Mediana tras MinMax} & \textbf{\% del rango} & \textbf{Pacientes bajo 0.1} \\
+\midrule
+\texttt{Sgot} & 10.55 & 0.0065 & \textbf{0.65\%} & \textbf{95.9\%} \\
+\texttt{Sgpt} & 6.55 & 0.0126 & \textbf{1.26\%} & \textbf{94.2\%} \\
+\texttt{TB} & 4.89 & 0.0080 & \textbf{0.80\%} & \textbf{89.4\%} \\
+\texttt{DB} & 3.27 & 0.0102 & \textbf{1.02\%} & \textbf{82.3\%} \\
+\texttt{Alkphos} & 3.77 & 0.0708 & 7.08\% & 66.6\% \\
+\texttt{A/G Ratio} & 1.00 & 0.2588 & 25.88\% & 9.9\% \\
+\texttt{Age} & $-$0.03 & 0.4767 & 47.67\% & 1.7\% \\
+\texttt{ALB} & $-$0.04 & 0.4783 & 47.83\% & 0.5\% \\
+\texttt{TP} & $-$0.29 & 0.5652 & 56.52\% & 0.5\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Con MinMax, el paciente \textbf{mediano} de \texttt{Sgot} queda situado en el \textbf{0.65\% del rango}, y \textbf{96 de cada 100 pacientes caen en el primer 10\% de la escala}: toda la variabilidad clínicamente relevante ---la diferencia entre un paciente con 30 y otro con 150--- se aplasta hasta volverse indistinguible.
+
+\textbf{Por qué ocurre.} MinMax divide por \texttt{max} $-$ \texttt{min}, denominador fijado por \textbf{exactamente dos pacientes}. Con colas largas, el rango total equivale a \textbf{79.3 veces el IQR} en \texttt{Sgot}, \textbf{53.1} en \texttt{Sgpt} y \textbf{41.4} en \texttt{TB}.
+
+\textbf{El contraste que lo confirma:} \texttt{Age}, \texttt{ALB} y \texttt{TP} ---asimetría cercana a cero--- quedan en 47.7\%, 47.8\% y 56.5\%, justo donde corresponde. \textbf{El problema no es MinMax en abstracto: es MinMax aplicado a variables con cola larga.}
+
+\subsection{Conclusión}
+
+\textbf{Para este conjunto de datos conviene Z-Score.} También se ve afectado por los extremos ---media y desviación no son robustas--- pero \textbf{el efecto se reparte entre las 583 observaciones en lugar de recaer sobre dos}. Esa es toda la diferencia, y con estas colas resulta decisiva.
+
+La figura lo muestra directamente: en MinMax las cinco variables más asimétricas aparecen como un trazo pegado al cero; en Z-Score recuperan cajas visibles, aunque siguen siendo estrechas comparadas con las simétricas ---Z-Score no corrige la asimetría, solo cambia las unidades---; y en \texttt{log1p} + Z-Score las cajas alcanzan tamaños comparables.
+
+\textbf{La alternativa superior es \texttt{log1p} antes de escalar}, que reduce la asimetría de \texttt{Sgot} de 10.55 a \textbf{1.23}. Cambia la interpretación de la variable ---una diferencia pasa a representar un factor multiplicativo---, lo cual para un biomarcador suele ser incluso más razonable, pero debe declararse.
+
+\textbf{Modelos que no requieren escalado:} la familia de árboles es \textbf{\textit{scale-invariant}}, ya que particiona por umbrales. Sí lo requieren los basados en distancia (KNN, SVM) y en gradiente (regresión logística, redes).
+
+\textit{Advertencia:} en el pipeline de modelado el escalador debe ajustarse \textbf{únicamente con el conjunto de entrenamiento}, dentro de un \texttt{Pipeline}. Ajustarlo sobre el dataset completo filtra información del test e infla las métricas. Aquí es aceptable porque no se entrena ningún modelo.
+
+% =====================================================================
+\section{Valores atípicos (T8)}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.88\textwidth]{fase3_t8_boxplots.png}
+\caption{Boxplots de las cuatro variables solicitadas; líneas discontinuas = límites de Tukey.}
+\end{figure}
+
+Se aplicó la \textbf{regla de Tukey}: es atípico todo valor fuera de $[Q_1 - 1.5 \cdot IQR,\ Q_3 + 1.5 \cdot IQR]$.
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}lccccccc@{}}
+\toprule
+\textbf{Variable} & \textbf{Q1} & \textbf{Q3} & \textbf{Límites} & \textbf{Atípicos} & \textbf{\%} & \textbf{Debajo} & \textbf{Encima} \\
+\midrule
+\texttt{Sgot} & 25.0 & 87.0 & [$-$68.0, 180.0] & \textbf{66} & \textbf{11.3\%} & 0 & \textbf{66} \\
+\texttt{TP} & 5.80 & 7.20 & [3.70, 9.30] & \textbf{8} & 1.4\% & \textbf{6} & 2 \\
+\texttt{ALB} & 2.60 & 3.80 & [0.80, 5.60] & \textbf{0} & 0.0\% & 0 & 0 \\
+\texttt{A/G Ratio} & 0.70 & 1.10 & [0.10, 1.70] & \textbf{10} & 1.7\% & 0 & \textbf{10} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Patrones observados}
+
+\textbf{\texttt{Sgot} --- 66 atípicos, todos por arriba.} Uno de cada nueve pacientes queda fuera del límite superior y \textbf{ninguno por debajo}. AST se derrama cuando la célula se rompe, de modo que un valor bajo significa ausencia de destrucción celular: \textbf{no existe un ``AST peligrosamente bajo''}. La cola solo puede crecer hacia arriba, y hacia arriba está la gravedad.
+
+\textbf{\texttt{TP} --- 8 atípicos, y la dirección es lo relevante.} Seis están \textbf{por debajo} y solo dos por encima. \texttt{TP} mide la producción proteica del hígado, eje en el que \textbf{bajo = malo}: esos seis pacientes presentan fallo de la función sintética. Es la única de las cuatro donde la cola relevante apunta hacia abajo.
+
+\textbf{\texttt{ALB} --- cero atípicos.} No significa que todos tengan albúmina normal, sino que la distribución es \textbf{estrecha y simétrica} (\textit{skewness} $-$0.04). La regla de Tukey no detecta nada porque no hay nada que sobresalga \textbf{estadísticamente}, aunque clínicamente sí existan pacientes con albúmina baja. \textbf{``Atípico estadístico'' y ``anormal clínico'' no son sinónimos.}
+
+\textbf{\texttt{A/G Ratio} --- 10 atípicos, todos por arriba.} Al ser un cociente, se dispara cuando el denominador (la globulina) es pequeño.
+
+\textbf{El patrón general:} en tres de las cuatro variables \textbf{todos los atípicos se concentran en el mismo extremo}, reflejo directo de la fisiología descrita en la sección 5. Un método que asuma colas simétricas no encaja con estos datos.
+
+\subsection{Atípicos estadísticos, no erróneos}
+
+Procede distinguir el \textbf{outlier estadístico} (lejos del centro pero clínicamente posible $\rightarrow$ conservar) del \textbf{outlier erróneo} (valor imposible $\rightarrow$ corregir o marcar). La distinción no se resuelve con estadística: exige contrastar contra límites biológicos.
+
+Contrastados los 84 valores atípicos contra los límites de lo biológicamente posible, \textbf{cero quedan fuera}. El caso extremo lo confirma: el paciente con \texttt{Sgot} = 4929 es un hombre de 66 años con \texttt{TB} = 11.3 (nueve veces el techo normal), \texttt{Alkphos} = 1110, \texttt{Sgpt} = 1250 y \texttt{ALB} = 2.4. \textbf{Los tres ejes hepáticos alterados a la vez y de forma coherente entre sí} --- no es un error de tecleo, sino un paciente en fallo hepático agudo grave.
+
+\subsection{Decisión de tratamiento}
+
+\textbf{No se elimina ningún valor atípico.} Si fueran errores, eliminarlos limpiaría el dataset; como son pacientes reales y graves, eliminarlos \textbf{borraría exactamente los casos que más importa detectar}. Un modelo de cribado entrenado sin ellos aprendería a reconocer enfermedad leve y fallaría en la severa, elevando la tasa de falsos negativos donde el coste clínico es máximo.
+
+\textbf{La alternativa es la transformación logarítmica.} \texttt{np.log1p} comprime la cola derecha \textbf{sin borrar información ni alterar el orden entre pacientes}: reduce la asimetría de \texttt{Sgot} de 10.55 a 1.23 y su conteo de atípicos de 66 a 22. Conviene interpretarlo correctamente: \textbf{no elimina pacientes, cambia la escala en la que se mide la distancia}, y con ella la pregunta --- de ``quién está lejos en unidades absolutas'' a ``quién está lejos en órdenes de magnitud''.
+
+% =====================================================================
+\section{Limitaciones, sesgo y conclusiones}
+
+\subsection{El hallazgo principal}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.88\textwidth]{loopc_umbral_alt_por_sexo.png}
+\caption{Sensibilidad de la clasificación de ALT al umbral elegido (n=583).}
+\end{figure}
+
+El dataset presenta una brecha en la tasa de diagnóstico positivo: \textbf{73.47\% en hombres frente al 64.79\% en mujeres}, \textbf{8.7 puntos porcentuales}. Describirla es sencillo; el aporte de este trabajo es \textbf{medir un mecanismo concreto} por el que podría producirse.
+
+Durante décadas los laboratorios emplearon un \textbf{umbral único de ALT de 40~U/L}. En 2002, Prati et al. midieron ALT en 6835 donantes de sangre sanos y establecieron que \textbf{las mujeres sanas presentan valores naturalmente más bajos}: el límite superior de normalidad es \textbf{30~U/L en hombres y 19~U/L en mujeres}, criterio adoptado por el ACG en 2017 y la AASLD en 2023. Un umbral único de 40 queda calibrado, sin proponérselo, mucho más cerca del techo masculino.
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}lccc@{}}
+\toprule
+& \textbf{Umbral unisex (40)} & \textbf{Umbral por sexo} & \textbf{Cambio} \\
+\midrule
+\textbf{Mujeres} (n=142) & 39 (27.5\%) & 109 (\textbf{76.8\%}) & \textbf{+49.3 pp} \\
+\textbf{Hombres} (n=441) & 208 (47.2\%) & 277 (\textbf{62.8\%}) & +15.6 pp \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Cambiar el criterio reclasifica a \textbf{la mitad de las mujeres} y a \textbf{una sexta parte de los hombres}: un impacto \textbf{tres veces mayor} sobre ellas. Bajo el umbral unisex las mujeres aparecen \textit{menos} afectadas que los hombres; bajo el umbral por sexo, \textit{más}: \textbf{la ordenación entre sexos se invierte al cambiar la regla de medida}. Entre los etiquetados como no hepáticos, el \textbf{68.0\%} de las mujeres presenta ALT por encima de su límite femenino, frente al \textbf{41.0\%} de los hombres.
+
+\textbf{Caveat necesario:} parte de la asimetría es aritmética, ya que la ventana femenina (19--40) es más ancha que la masculina (30--40). Lo que \textbf{no} es aritmético es que \textbf{70 de las 142 mujeres tengan efectivamente su ALT dentro de esa franja}: una ventana ancha solo atrapa gente si hay gente dentro.
+
+\textbf{Puede afirmarse} que la población femenina está \textbf{desproporcionadamente concentrada en el rango donde la elección del umbral decide el resultado}. \textbf{No puede afirmarse} que los clínicos usaran el umbral de 40, que esas mujeres estén mal diagnosticadas, ni que esto explique toda la brecha. Es un \textbf{análisis de sensibilidad}: no prueba una causa, mide cuánto depende un resultado de una decisión metodológica.
+
+Straw \& Wu (2022) auditaron modelos entrenados sobre este mismo dataset y hallaron tasas de falsos negativos consistentemente peores en mujeres ---hasta \textbf{$-$24.07 puntos} en regresión logística---, atribuyéndolo en parte al uso histórico de umbrales unisex.
+
+\subsection{El sesgo reaparece en el preprocesamiento}
+
+Un hallazgo derivado: \textbf{el propio tratamiento de datos puede introducir sesgo sin que ninguna decisión explícita lo persiga}. Al repetir el conteo de atípicos comparando cada subgrupo consigo mismo en lugar de contra el conjunto:
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}llcc@{}}
+\toprule
+\textbf{Variable} & \textbf{Subgrupo} & \textbf{Umbral global} & \textbf{Umbral propio} \\
+\midrule
+\texttt{Sgot} & Mujeres & 10 (\textbf{7.0\%}) & 15 (\textbf{10.6\%}) \\
+\texttt{A/G Ratio} & Mujeres & 3 (\textbf{2.1\%}) & 7 (\textbf{4.9\%}) \\
+\texttt{Alkphos} & Menores de 18 & 4 (\textbf{16.0\%}) & 2 (\textbf{8.0\%}) \\
+\texttt{ALB} & Menores de 18 & \textbf{0 (0.0\%)} & \textbf{4 (16.0\%)} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Los cuartiles globales se calculan sobre una muestra 75.6\% masculina, de modo que \textbf{están calibrados esencialmente con hombres}: una mujer con un valor elevado \textit{para una mujer} puede quedar dentro de un límite fijado por la distribución masculina. Es el mismo mecanismo de la sección anterior, en otra etapa del pipeline.
+
+En el eje etario el sesgo \textbf{se invierte según la variable}: en \texttt{Alkphos} el umbral global sobredetecta en menores ---cuya fosfatasa alcalina es alta por crecimiento óseo, no por daño hepático---, mientras que en \texttt{ALB} subdetecta. \textbf{El umbral único no describe bien a ningún subgrupo.}
+
+\subsection{Limitaciones}
+
+\textbf{Ausencia de etiología.} No se registran alcohol ni hepatitis viral, de modo que solo puede aprenderse la firma bioquímica del daño, nunca su causa. La distribución del cociente De Ritis sugiere heterogeneidad bajo la etiqueta binaria, pero sin etiología registrada no es posible discriminar entre ``distinta causa'' y ``distinto estadio''.
+
+\textbf{Calidad de la captura de edad.} El \textit{age heaping} (Whipple 163.3) y la censura en 90 impiden cualquier análisis etario fino.
+
+\textbf{Rangos de referencia no locales.} Los umbrales de Prati proceden de donantes de Milán. El estudio multicéntrico C-RIDL/IFCC en India (Shah et al., 2018) confirma que ALT, AST, ALP, albúmina y bilirrubina total \textbf{requieren partición por sexo}, pero los estudios regionales indios se contradicen y \textbf{ninguno cubre Andhra Pradesh}: la \textit{dirección} del hallazgo es robusta, la \textit{magnitud exacta} del umbral es incierta para esta cohorte.
+
+\textbf{Muestras pequeñas en subgrupos femeninos.} Solo hay 20 mujeres mayores de 60 y 25 menores de 18. En un trabajo cuyo eje es la equidad por sexo, \textbf{el desbalance no solo sesgaría a un modelo futuro: limita qué preguntas admiten respuesta}, incluso en análisis puramente descriptivos.
+
+\textbf{\texttt{Selector} como \textit{proxy label}.} Cualquier ordenación de variables por capacidad de separar diagnosticados de no diagnosticados hereda los criterios de quien emitió la etiqueta: si el diagnóstico se apoyó sobre todo en la bilirrubina, \texttt{TB} separará bien \textbf{por construcción}, no por mérito predictivo.
+
+\subsection{Conclusiones}
+
+\textbf{Sobre el dataset.} Con 583 registros, nueve problemas de calidad identificados y ausencia de variables etiológicas, el ILPD es adecuado para práctica metodológica pero insuficiente para conclusiones clínicas. Su desbalance de sexo (76/24) lo convierte, paradójicamente, en un buen caso de estudio sobre equidad algorítmica.
+
+\textbf{Sobre el preprocesamiento.} Las decisiones fueron: conservar los 13 duplicados (impacto medido despreciable), marcar como faltantes las 3 filas bioquímicamente imposibles sin eliminarlas, imputar por media los 4 nulos originales documentando su defecto, escalar con Z-Score y \textbf{conservar todos los valores atípicos} por tratarse de pacientes reales y graves.
+
+\textbf{Sobre la metodología.} Ninguna afirmación clínica se apoya en intuición: cada umbral y criterio procede de fuentes primarias documentadas y versionadas en el repositorio (guías ACG/AASLD, estudios de intervalos de referencia, proyecto CALIPER, marco de calidad de datos de Kahn et al.). Tres iteraciones CRISP-DM quedaron registradas con fecha, disparador y decisión.
+
+\textbf{Lo que este trabajo aporta más allá del enunciado:} la constatación de que \textbf{un pipeline de datos aparentemente neutro puede introducir sesgo por sexo en al menos dos puntos independientes} ---la elección del umbral diagnóstico y el tratamiento de valores atípicos--- sin que ninguna decisión explícita lo persiga. Ambos son medibles \textbf{antes de entrenar modelo alguno}, y ambos afectan de forma desigual al subgrupo minoritario.
+
+% =====================================================================
+\section*{Referencias}
+\addcontentsline{toc}{section}{Referencias}
+\small
+\begin{itemize}
+\item Prati, D. et al. (2002). \textit{Updated definitions of healthy ranges for serum alanine aminotransferase levels.} Ann Intern Med, 137(1). DOI 10.7326/0003-4819-137-1-200207020-00006
+\item Kwo, P. et al. (2017). \textit{ACG Clinical Guideline: Evaluation of Abnormal Liver Chemistries.} Am J Gastroenterol.
+\item Rinella, M. et al. (2023). \textit{AASLD Practice Guidance on the clinical assessment and management of MASLD.}
+\item Shah, S. et al. (2018). \textit{Reference intervals for 33 biochemical analytes in healthy Indian population.} Clin Chem Lab Med. DOI 10.1515/cclm-2018-0152
+\item Zierk, J. et al. (2017). \textit{Pediatric reference intervals for alkaline phosphatase.} Clin Chem Lab Med.
+\item Kahn, M. et al. (2016). \textit{A Harmonized Data Quality Assessment Terminology and Framework for the Secondary Use of EHR Data.} eGEMs.
+\item Straw, I. \& Wu, H. (2022). \textit{Investigating for bias in healthcare algorithms: a sex-stratified analysis of supervised machine learning models in liver disease prediction.} BMJ Health Care Inform, 29(1). DOI 10.1136/bmjhci-2021-100457
+\item Ramana, B. V. \& Venkateswarlu, N. B. \textit{ILPD (Indian Liver Patient Dataset).} UCI Machine Learning Repository. DOI 10.24432/C5D02C
+\item Naciones Unidas, \textit{Demographic Yearbook} --- notas metodológicas sobre el índice de Whipple.
+\item CLSI EP28-A3c / C28-A3, \textit{Defining, Establishing, and Verifying Reference Intervals in the Clinical Laboratory.}
+\end{itemize}
+
+\vspace{0.6em}
+\footnotesize
+\textit{Código reproducible:} \texttt{notebooks/act1\_anexo.ipynb} \quad
+\textit{Diccionario de datos:} \texttt{docs/data\_dictionary.md} \quad
+\textit{Iteraciones CRISP-DM:} \texttt{docs/CHANGELOG\_iteraciones.md} \quad
+\textit{Decisiones de ingeniería:} \texttt{docs/adr/} \quad
+\textit{Fuentes:} \texttt{docs/fuentes/}
+
+\end{document}

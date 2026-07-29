@@ -4,3 +4,12 @@ __pycache__/
 *.pyc
 data/processed/
 .DS_Store
+
+# LaTeX (auxiliares; el .tex y el .pdf si se versionan)
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
