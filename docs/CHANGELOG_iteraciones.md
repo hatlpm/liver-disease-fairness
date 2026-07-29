@@ -170,3 +170,81 @@ análisis puramente descriptivo.**
 como alternativa **[V]** para las variables asimétricas. Este resultado
 sugiere reforzarla: cualquier método basado en distancias o varianzas sobre
 estas variables sin transformar mide, sobre todo, a los casos extremos.
+
+---
+
+## 2026-07-28 — Loop B: Data Preparation → Data Understanding
+
+**El loop que el PRD anticipaba, disparado por un motivo distinto al previsto.**
+
+El §9.1 del PRD define el Loop B así: *"al analizar outliers en Fase 3 se
+descubre algún valor clínicamente imposible → se necesita más EDA"*. Se
+verificó esa hipótesis y **resultó falsa**: al contrastar los 84 valores
+atípicos de las cuatro variables de T8 contra límites biológicos duros
+(`TP` 2–12, `ALB` 0.5–6.5, `A/G Ratio` 0.1–5.0, `Sgot` 1–20000), **cero
+quedan fuera del rango posible**. Todos son *outliers estadísticos*, no
+erróneos.
+
+Los dos casos extremos se revisaron paciente por paciente y son internamente
+coherentes: el de `Sgot` = 4929 tiene los tres ejes hepáticos alterados a la
+vez (bilirrubina 9× el techo normal, transaminasas en miles, albúmina en
+2.4); el de `TP` = 2.7 tiene albúmina en 0.9. Son cuadros clínicos completos,
+no errores de captura. La única violación dura del dataset sigue siendo la de
+`DB > TB` ya detectada en Loop C.
+
+**Pero el loop se disparó igual, por otro hallazgo.**
+
+**Disparador real:** al repetir el conteo de outliers estratificado (F3-R15 y
+el mandato de Loop C sobre edad), el umbral único de Tukey resultó **no ser
+neutro respecto a sexo ni a edad** — y el sesgo **no tiene una sola
+dirección**.
+
+| Variable | Subgrupo | Umbral global | Umbral propio |
+|---|---|---|---|
+| `Sgot` | Mujeres (n=142) | 10 (**7.0%**) | 15 (**10.6%**) |
+| `A/G Ratio` | Mujeres (n=142) | 3 (**2.1%**) | 7 (**4.9%**) |
+| `Alkphos` | Menores (n=25) | 4 (**16.0%**) | 2 (**8.0%**) |
+| `ALB` | Menores (n=25) | **0 (0.0%)** | **4 (16.0%)** |
+| `TP` | Menores (n=25) | **0 (0.0%)** | **3 (12.0%)** |
+
+**Hallazgo 1 — subdetección en mujeres.** Los cuartiles globales se calculan
+sobre una muestra que es 75.6% masculina, así que están calibrados
+esencialmente con hombres. Una mujer con un valor elevado *para una mujer*
+puede quedar dentro de un límite fijado por la distribución masculina. **Es
+el mismo mecanismo que Loop C documentó en los umbrales de ALT**, ahora
+reapareciendo en una etapa distinta del pipeline: no solo el umbral
+diagnóstico, también el tratamiento de outliers.
+
+**Hallazgo 2 — el sesgo etario se invierte según la variable.** Loop C
+predijo que el umbral global **sobredetectaría** en menores por la ALP
+elevada del crecimiento óseo, y se confirma (16.0% vs 8.0%). Lo **no
+anticipado** es que en `ALB` y `TP` ocurre lo contrario: el umbral global
+marca **cero** menores, mientras que dentro de su propia banda saldrían 4 y
+3. Es decir, el umbral único también **subdetecta** donde la distribución
+pediátrica es más estrecha que la adulta.
+
+Conclusión general: **el umbral único no describe bien a ningún subgrupo en
+particular**, y el error que comete depende de la variable.
+
+**Hallazgo 3 — los duplicados no son neutros.** Las 26 filas implicadas en
+duplicación son **84.6% hombres**, frente al 75.6% de la muestra completa. La
+diferencia es pequeña y sobre 26 filas no admite lectura estadística, pero se
+registra: cualquier decisión sobre duplicados afecta más a un sexo que al
+otro.
+
+**Decisiones tomadas:**
+
+1. **No se altera el conteo obligatorio.** El número que responde a la
+   rúbrica (F3-R11) es el global, calculado sobre las 583 filas, y así queda
+   reportado. La estratificación **se suma**, nunca sustituye (§0.4 del PRD).
+2. **No se elimina ningún valor atípico.** Al no haber ninguno erróneo,
+   eliminarlos borraría exactamente los pacientes más graves — los que un
+   cribado debe detectar. Se conservan las 583 filas.
+3. **Se traspasa a la Fase 5** como material concreto: el tratamiento de
+   outliers es un punto del pipeline donde el sesgo por sexo puede entrar sin
+   que nadie lo decida explícitamente.
+
+**Impacto:** ninguno sobre el alcance de las Fases 0–3. Refuerza con
+evidencia nueva la hipótesis de sub-diagnóstico registrada en Loop A, y añade
+un mecanismo candidato que no estaba en la lista: **el preprocesamiento
+mismo**.

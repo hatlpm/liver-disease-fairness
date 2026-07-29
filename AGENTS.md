@@ -89,50 +89,59 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | 2 — EDA | `feature/fase-2-eda` → mezclada a `main` | ✅ Cerrada (T1–T5, Loop A) |
 | 2b — EDA clínico | `feature/fase-2-eda-clinico` → mezclada a `main` (2026-07-28) | ✅ Cerrada. Loop C: lectura clínica del EDA, diccionario de datos, 2 problemas de calidad nuevos (Q8 `DB>TB`, Q9 age heaping), Q7 resuelto, y análisis de sensibilidad de umbrales de ALT por sexo. Aprobada por el usuario sin observaciones. |
 | 2c — EDA clustering/PCA | `feature/fase-2c-eda-clustering` → mezclada a `main` (2026-07-28) | ✅ Cerrada. Clustering jerárquico edad × sexo, revisado tras observaciones del usuario: se corrigieron los clusters de 1-4 personas (causa: distancias euclídeas sobre variables crudas con asimetría 10) y una contradicción interna. Exp 1 se reporta en dos variantes (crudo vs `log1p`) como análisis de sensibilidad. Incluye control de sesgo del propio análisis (ALT es 4.ª de 9 en separación). Ver CHANGELOG § 2026-07-28. |
-| 3 — Preprocessing | `feature/fase-3-preprocessing` (rebasada sobre `main` tras cerrar 2c) | 🔄 **En planificación.** Rama abierta y al día, sin código todavía — faltan 3 decisiones de diseño (ver checkpoint abajo) antes de escribir la primera celda. |
+| 3 — Preprocessing | `feature/fase-3-preprocessing` | 🔄 **Notebook completo (T6, T7, T8), pendiente de tu revisión y merge.** 39 celdas, 0 errores, los 13 requisitos de la fase cubiertos (9 `[M]` + 4 `[V]`). Loop B registrado. Ver checkpoint abajo. |
 | E — Entregables | — | ⏳ No iniciada |
 
 > Actualiza esta tabla al cerrar cada fase. Es lo primero que debe leer un
 > agente nuevo para saber dónde retomar.
 
-## 🔖 Checkpoint abierto — Fase 3 en planificación (2026-07-28)
+## 🔖 Checkpoint abierto — Fase 3 escrita, pendiente de revisión (2026-07-28)
 
-**La Fase 2c está cerrada y mezclada a `main`.** La rama activa es ahora
-`feature/fase-3-preprocessing`, rebasada sobre `main`, **sin código todavía**.
+`notebooks/03_preprocessing.ipynb` está **completo y ejecutado** (39 celdas,
+0 errores) en `feature/fase-3-preprocessing`. **No mezclado a `main`** —
+espera la revisión del usuario.
 
-### Reutilizable que dejó la Fase 2c
+### Las tres decisiones de diseño, ya acordadas con el usuario
 
-Funciones en `src/utils.py`: `age_band_label`, `assign_age_sex_stratum`,
-`hierarchical_cluster_cut` (con `min_cluster_size`), `cluster_sizes`,
-`cliffs_delta`, `separation_by_variable`.
-Constantes en `src/config.py`: `CLUSTER_LINKAGE_METHOD`, `SKEWED_COLS`,
-`MIN_CLUSTER_SIZE`, `MIN_STRATUM_SIZE_FOR_SEX_SPLIT`,
-`MIN_STRATUM_SIZE_FOR_CLUSTERING`.
+| # | Decisión | Elegida |
+|---|---|---|
+| 1 | 13 duplicados exactos (F3-R13) | **Conservar**, con análisis de sensibilidad |
+| 2 | Los 6 nulos que crea marcar `DB > TB` | **Dejar como faltantes**, no imputar |
+| 3 | `log1p` en T7 | **Tercera columna**, después del comparativo obligatorio |
 
-### ⚠️ Tres decisiones pendientes antes de escribir la primera celda
+### Resultados principales
 
-No las decide el agente — requieren criterio del usuario y quedaron
-explícitamente abiertas:
+- **T6:** la imputación por media falla en 3 de 4 filas (error de hasta 34%
+  contra el valor determinista). *Variance shrinkage* medido: −0.687%.
+  Eliminar los 13 duplicados movería las medias solo +0.70% / +0.77%.
+- **T7:** con MinMax, el **95.9%** de los pacientes de `Sgot` queda bajo 0.1
+  y la mediana en el 0.65% del rango. Conclusión: **Z-Score**.
+- **T8:** 66 atípicos en `Sgot`, 8 en `TP`, **0 en `ALB`**, 10 en
+  `A/G Ratio`. **Ninguno es biológicamente imposible** → se conservan todos.
+- **Loop B registrado** en el CHANGELOG: el umbral único de Tukey subdetecta
+  en mujeres (`Sgot` 7.0% global vs 10.6% propio) y el sesgo etario **se
+  invierte** según la variable.
 
-1. **Los 13 duplicados exactos** (F3-R13, requisito **[M]**). ¿Pacientes
-   distintos con analítica idéntica, o error de captura? Cambia el tamaño
-   muestral y hay que justificarlo por escrito.
-2. **Orden de operaciones con las 3 filas `DB > TB`.** Marcarlas como
-   faltantes (ya acordado en Loop C) **crea nulos nuevos**. ¿Se imputan por
-   media igual que los 4 de `A/G Ratio`, o se dejan como faltantes por ser de
-   otra naturaleza? Afecta a T6.
-3. **Alcance de la transformación logarítmica.** La Fase 2c demostró que
-   `log1p` no es opcional para métodos basados en distancias, pero F3-R14 la
-   lista como **[V]** alternativa y T7 exige MinMax y Z-Score **[M]**. ¿Se
-   añade una tercera columna log-transformada al comparativo de escalado, o
-   se deja como nota escrita?
+### Salidas
 
-### Mandatos ya escritos (no hace falta re-derivarlos)
+3 datasets en `data/processed/` (gitignored, se regeneran al ejecutar):
+`ilpd_procesado.csv`, `ilpd_zscore.csv`, `ilpd_log_zscore.csv`.
+2 figuras nuevas: `fase3_t7_escalado.png`, `fase3_t8_boxplots.png`.
 
-La última celda de `notebooks/02_eda.ipynb` ("Notas para fases futuras")
-contiene los mandatos de T6, T7, T8, duplicados y el efecto sobre T3. La
-última celda de `02c_eda_clustering.ipynb` añade lo que la Fase 2c aporta a
-la Fase 3.
+### Qué sigue si el usuario aprueba
+
+Merge a `main` y arrancar la **Fase E** (entregables): `act1_anexo.ipynb`
+consolidado en orden T1→T8, e `informe_act1.md` (≤10 páginas, sin código,
+con números reales de celdas ejecutadas).
+
+### Reutilizable en `src/`
+
+`utils.py`: `age_band_label`, `assign_age_sex_stratum`,
+`hierarchical_cluster_cut`, `cluster_sizes`, `cliffs_delta`,
+`separation_by_variable`, `whipple_index`, `de_ritis_ratio`,
+`flag_biochemical_violations`, `alt_threshold_comparison`.
+`config.py`: umbrales de ALT, rangos de referencia, `SKEWED_COLS`,
+`IQR_MULTIPLIER`, paleta de figuras validada.
 
 ### Advertencias permanentes
 
