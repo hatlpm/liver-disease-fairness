@@ -88,80 +88,57 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | 1 — Problem Framing | `feature/fase-1-problem-framing` → mezclada a `main` | ✅ Cerrada |
 | 2 — EDA | `feature/fase-2-eda` → mezclada a `main` | ✅ Cerrada (T1–T5, Loop A) |
 | 2b — EDA clínico | `feature/fase-2-eda-clinico` → mezclada a `main` (2026-07-28) | ✅ Cerrada. Loop C: lectura clínica del EDA, diccionario de datos, 2 problemas de calidad nuevos (Q8 `DB>TB`, Q9 age heaping), Q7 resuelto, y análisis de sensibilidad de umbrales de ALT por sexo. Aprobada por el usuario sin observaciones. |
-| 2c — EDA clustering/PCA | `feature/fase-2c-eda-clustering` (creada desde `main` en `52d2477`) | 🔄 **Revisada tras observaciones del usuario (2026-07-28).** Se corrigieron dos fallos metodológicos: clusters de 1-4 personas (causa: clustering euclídeo sobre variables crudas con asimetría 10) y una contradicción interna sobre `60-120 · Female`. Ahora el Exp 1 se corre en dos variantes (crudo vs `log1p`) como análisis de sensibilidad. Ver CHANGELOG § 2026-07-28. Pendiente de tu visto bueno y merge. |
-| 3 — Preprocessing | `feature/fase-3-preprocessing` (creada desde `main`) | 🔄 **En planificación.** Rama abierta, sin código todavía — pendiente de acordar el diseño de imputación (ver checkpoint abajo) antes de escribir la primera celda. |
+| 2c — EDA clustering/PCA | `feature/fase-2c-eda-clustering` → mezclada a `main` (2026-07-28) | ✅ Cerrada. Clustering jerárquico edad × sexo, revisado tras observaciones del usuario: se corrigieron los clusters de 1-4 personas (causa: distancias euclídeas sobre variables crudas con asimetría 10) y una contradicción interna. Exp 1 se reporta en dos variantes (crudo vs `log1p`) como análisis de sensibilidad. Incluye control de sesgo del propio análisis (ALT es 4.ª de 9 en separación). Ver CHANGELOG § 2026-07-28. |
+| 3 — Preprocessing | `feature/fase-3-preprocessing` (rebasada sobre `main` tras cerrar 2c) | 🔄 **En planificación.** Rama abierta y al día, sin código todavía — faltan 3 decisiones de diseño (ver checkpoint abajo) antes de escribir la primera celda. |
 | E — Entregables | — | ⏳ No iniciada |
 
 > Actualiza esta tabla al cerrar cada fase. Es lo primero que debe leer un
 > agente nuevo para saber dónde retomar.
 
-## 🔖 Checkpoint abierto — traspaso del 2026-07-28 (noche), cambio de máquina
+## 🔖 Checkpoint abierto — Fase 3 en planificación (2026-07-28)
 
-**El usuario cierra esta sesión acá y la retoma en otra computadora, vía
-OneDrive.** Este commit es un **checkpoint de trabajo en progreso**: el
-contenido de `02c_eda_clustering.ipynb` **corre sin errores pero todavía no
-fue revisado a fondo por el usuario** — no tratarlo como aprobado. La sesión
-nueva debe esperar sus observaciones antes de seguir, igual que se hizo con
-Loop C.
+**La Fase 2c está cerrada y mezclada a `main`.** La rama activa es ahora
+`feature/fase-3-preprocessing`, rebasada sobre `main`, **sin código todavía**.
 
-**Rama activa:** `feature/fase-2c-eda-clustering` (creada desde `main` en
-`52d2477`). `feature/fase-3-preprocessing` existe en paralelo, mismo punto
-de partida, todavía sin código — el usuario decidió empezar por la sub-fase
-2c primero.
+### Reutilizable que dejó la Fase 2c
 
-**Qué hay en `02c_eda_clustering.ipynb` (19 celdas, ejecuta de punta a punta,
-`nbconvert --execute` verificado):**
+Funciones en `src/utils.py`: `age_band_label`, `assign_age_sex_stratum`,
+`hierarchical_cluster_cut` (con `min_cluster_size`), `cluster_sizes`,
+`cliffs_delta`, `separation_by_variable`.
+Constantes en `src/config.py`: `CLUSTER_LINKAGE_METHOD`, `SKEWED_COLS`,
+`MIN_CLUSTER_SIZE`, `MIN_STRATUM_SIZE_FOR_SEX_SPLIT`,
+`MIN_STRATUM_SIZE_FOR_CLUSTERING`.
 
-1. Exclusión documentada de 7 filas con problemas de calidad ya conocidos
-   (4 `A/G Ratio` faltante, 3 `DB>TB`) → n=576 para este notebook exploratorio
-   únicamente (no toca la imputación formal de Fase 3).
-2. Estratificación edad×sexo: 7 grupos (`assign_age_sex_stratum` en
-   `src/utils.py`), banda 0-17 fusionada por tamaño chico
-   (`MIN_STRATUM_SIZE_FOR_SEX_SPLIT=30` en `src/config.py`).
-3. **Experimento 1** (clustering jerárquico, Ward, sobre las 9 variables):
-   encuentra un cluster chico de "severidad multivariada" en las 3 bandas
-   adultas — `TB` muy elevada, ~100% diagnosticado. Dendrogramas en
-   `reports/figures/fase2c_exp1_dendrogramas.png`.
-4. **Experimento 2** (clustering solo sobre `Sgpt`/`Sgot`, crudo y `log1p`,
-   pedido explícito del usuario): confirma que reducir a 2 variables no
-   resuelve un corte fino comparable a la literatura. Conclusión reportada:
-   el ILPD es cohorte hospitalaria (71% ya diagnosticados), sin la franja de
-   sanos que un método data-driven necesita para encontrar el mismo límite
-   que Prati/ACG/AASLD calibraron con muestras poblacionales — **refuerza,
-   con evidencia empírica directa, la decisión ya tomada en el ADR 0004** de
-   no derivar umbrales propios. Dendrogramas en
-   `reports/figures/fase2c_exp2_dendrogramas.png`.
-5. Valor agregado: De Ritis por cluster — diferencia grande (casi el doble)
-   solo en 2 de 7 estratos (`40-59 · Male`, `60-120 · Female`), reportado
-   como hipótesis abierta y específica, no como patrón general.
-6. Tabla de honestidad metodológica + notas para Fase 4+/Fase 5.
+### ⚠️ Tres decisiones pendientes antes de escribir la primera celda
 
-**Funciones nuevas reutilizables en `src/utils.py`:** `age_band_label`,
-`assign_age_sex_stratum`, `hierarchical_cluster_cut` (corta el dendrograma
-en el mayor salto de distancia de fusión — sin fijar `k` a mano).
-Constantes nuevas en `src/config.py`: `CLUSTER_LINKAGE_METHOD`,
-`MIN_STRATUM_SIZE_FOR_SEX_SPLIT`.
+No las decide el agente — requieren criterio del usuario y quedaron
+explícitamente abiertas:
 
-**Lo primero que debe hacer la sesión en la otra máquina:**
+1. **Los 13 duplicados exactos** (F3-R13, requisito **[M]**). ¿Pacientes
+   distintos con analítica idéntica, o error de captura? Cambia el tamaño
+   muestral y hay que justificarlo por escrito.
+2. **Orden de operaciones con las 3 filas `DB > TB`.** Marcarlas como
+   faltantes (ya acordado en Loop C) **crea nulos nuevos**. ¿Se imputan por
+   media igual que los 4 de `A/G Ratio`, o se dejan como faltantes por ser de
+   otra naturaleza? Afecta a T6.
+3. **Alcance de la transformación logarítmica.** La Fase 2c demostró que
+   `log1p` no es opcional para métodos basados en distancias, pero F3-R14 la
+   lista como **[V]** alternativa y T7 exige MinMax y Z-Score **[M]**. ¿Se
+   añade una tercera columna log-transformada al comparativo de escalado, o
+   se deja como nota escrita?
 
-1. Recrear el `venv` (ver "Entorno técnico" arriba) — se borró a propósito
-   antes de cerrar esta sesión, como siempre. 3.12 o 3.13 funcionan bien,
-   ambos verificados.
-2. Abrir `notebooks/02c_eda_clustering.ipynb` y leer con el usuario — él va
-   a traer preguntas de una revisión propia, probablemente sobre el
-   Experimento 2, la explicación del sesgo de cohorte hospitalaria, o el
-   hallazgo de De Ritis en los 2 estratos.
-3. **No avanzar a construir más análisis de clustering, ni tocar
-   `feature/fase-3-preprocessing`, hasta que el usuario dé su visto bueno o
-   pida cambios concretos sobre este notebook.**
+### Mandatos ya escritos (no hace falta re-derivarlos)
 
-**Advertencias para el agente de la sesión nueva:**
+La última celda de `notebooks/02_eda.ipynb` ("Notas para fases futuras")
+contiene los mandatos de T6, T7, T8, duplicados y el efecto sobre T3. La
+última celda de `02c_eda_clustering.ipynb` añade lo que la Fase 2c aporta a
+la Fase 3.
+
+### Advertencias permanentes
 
 - ⚠️ **El usuario no tiene formación clínica.** Explicar desde cero, con
   redundancia, antes de concluir. Ver el protocolo al final de este archivo.
-- ⚠️ **No commitear ni mezclar sin orden explícita** (convención del
-  proyecto) — este checkpoint es la excepción ya autorizada para cerrar la
-  sesión de forma trazable, no un cambio de política.
+- ⚠️ **No commitear ni mezclar sin orden explícita** (convención del proyecto).
 
 ## Dónde está cada tipo de decisión documentada
 
