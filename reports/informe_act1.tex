@@ -10,7 +10,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[spanish,es-nodecimaldot,es-noquoting,es-tabla]{babel}
-\usepackage[top=1.8cm,bottom=1.8cm,left=1.95cm,right=1.95cm]{geometry}
+\usepackage[top=1.75cm,bottom=1.6cm,left=1.95cm,right=1.95cm]{geometry}
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{graphicx}
@@ -31,7 +31,7 @@
 % --- Ajustes de compacidad (subir/bajar si sobran o faltan paginas) ---
 \captionsetup{font=footnotesize,labelfont=bf,skip=3pt}
 \setlist{nosep,leftmargin=1.4em}
-\setlength{\parskip}{0.24em}
+\setlength{\parskip}{0.10em}
 \setlength{\parindent}{0pt}
 \renewcommand{\arraystretch}{1.04}
 
@@ -149,7 +149,7 @@ El desbalance de clase implica que la \textit{accuracy} será engañosa en cualq
 
 \textbf{Q8 --- tres filas bioquímicamente imposibles.} La bilirrubina directa es una \textit{fracción} de la total, de modo que \texttt{DB} $\leq$ \texttt{TB} se cumple por definición. Tres filas la violan: \texttt{TB}=1.8 con \texttt{DB}=9.0, \texttt{TB}=1.5 con \texttt{DB}=7.0 y \texttt{TB}=1.0 con \texttt{DB}=1.4. Son invisibles a un chequeo univariado ---un \texttt{DB} de 9.0 es plausible \textbf{por sí solo}, dentro del rango de la columna--- y el error solo existe \textbf{en relación con \texttt{TB}}. La bioquímica clínica atribuye esta discordancia a interferencia analítica, \textbf{nunca a fisiología real}.
 
-\textbf{Q9 --- las edades no se leyeron de un documento.} El índice de Whipple cuantifica el \textit{age heaping}: la acumulación artificial de edades terminadas en 0 o 5 que ocurre cuando la edad se estima en lugar de verificarse. El valor obtenido, \textbf{163.3}, corresponde a la categoría \textbf{``Tosca''} de la escala de Naciones Unidas e indica un \textbf{63\% más de personas en edades redondas} de las esperables. \texttt{Age} arrastra por tanto un error de $\pm$2--3 años y no admite franjas etarias estrechas.
+\textbf{Q9 --- las edades no se leyeron de un documento.} El índice de Whipple cuantifica el \textit{age heaping}: la acumulación artificial de edades terminadas en 0 o 5 que ocurre cuando la edad se estima en lugar de verificarse. El valor obtenido, \textbf{163.3}, corresponde a la categoría \textbf{``Tosca''} de la escala de Naciones Unidas e indica un \textbf{63\% más de personas en edades redondas} de las esperables. \texttt{Age} arrastra por tanto un error de $\pm$2--3 años y no admite franjas etarias estrechas. \textit{(El índice y su escala están diseñados para datos censales, no para una cohorte hospitalaria como esta; el valor 163.3 se verificó de forma independiente, pero la etiqueta ``Tosca'' hereda un supuesto de dominio no comprobado. Ver \texttt{data\_dictionary.md}.)}
 
 \subsection{Decisión sobre los duplicados}
 
@@ -196,6 +196,8 @@ Los duplicados están \textbf{sobrerrepresentados en hombres} (84.6\% frente al 
 \textbf{La mitad de la muestra tiene bilirrubina normal.} Contra el rango de referencia adulto (\texttt{TB}: 0.3--1.2~mg/dL), la mediana de 1.00 queda \textbf{dentro de lo normal} y la de \texttt{DB} justo en el límite. En un dataset donde el 71\% está etiquetado como hepático, esto indica que la ictericia ---signo tardío--- \textbf{no es el mecanismo por el que se diagnosticó a la mayoría}.
 
 \textbf{Consecuencia práctica:} mediana e IQR describen mejor a esta población que media y desviación estándar. Y los extremos no son ruido: un \texttt{TB} de 75.0 ---62 veces el techo normal--- es el paciente más severo de la cohorte, precisamente el caso que un cribado debe detectar.
+
+\textit{Nota de transparencia: esta tabla incluye 2 valores de \texttt{DB} (9.0 y 7.0) ya identificados como errores de laboratorio (Q8). Excluirlos cambia la media de \texttt{DB} en $-$1.5\% y su IQR en $-$6.8\%; los números oficiales no se modifican, mismo criterio que con los duplicados.}
 
 % =====================================================================
 \section{Forma y simetría de las distribuciones (T4)}
@@ -476,7 +478,7 @@ Se aplicó la \textbf{regla de Tukey}: es atípico todo valor fuera de $[Q_1 - 1
 
 Procede distinguir el \textbf{outlier estadístico} (lejos del centro pero clínicamente posible $\rightarrow$ conservar) del \textbf{outlier erróneo} (valor imposible $\rightarrow$ corregir o marcar). La distinción no se resuelve con estadística: exige contrastar contra límites biológicos.
 
-Contrastados los 84 valores atípicos contra los límites de lo biológicamente posible, \textbf{cero quedan fuera}. El caso extremo lo confirma: el paciente con \texttt{Sgot} = 4929 es un hombre de 66 años con \texttt{TB} = 11.3 (nueve veces el techo normal), \texttt{Alkphos} = 1110, \texttt{Sgpt} = 1250 y \texttt{ALB} = 2.4. \textbf{Los tres ejes hepáticos alterados a la vez y de forma coherente entre sí} --- no es un error de tecleo, sino un paciente en fallo hepático agudo grave.
+Contrastados los 84 valores atípicos contra los límites de lo biológicamente posible, \textbf{cero quedan fuera}. \textit{(\texttt{TP}, \texttt{ALB}, \texttt{A/G Ratio}: estimación del equipo, sin fuente publicada; techo de \texttt{Sgot} (7446~U/L): Chang et al. 2007.)} El caso extremo lo confirma: el paciente con \texttt{Sgot} = 4929 es un hombre de 66 años con \texttt{TB} = 11.3 (nueve veces el techo normal), \texttt{Alkphos} = 1110, \texttt{Sgpt} = 1250 y \texttt{ALB} = 2.4. \textbf{Los tres ejes hepáticos alterados a la vez y de forma coherente entre sí} --- no es un error de tecleo, sino un paciente en fallo hepático agudo grave.
 
 \subsection{Decisión de tratamiento}
 
@@ -487,7 +489,7 @@ Contrastados los 84 valores atípicos contra los límites de lo biológicamente 
 % =====================================================================
 \section{Limitaciones, sesgo y conclusiones}
 
-\subsection{El hallazgo principal}
+\subsection{Una brecha observada, y un mecanismo candidato}
 
 \begin{figure}[H]
 \centering
@@ -495,7 +497,7 @@ Contrastados los 84 valores atípicos contra los límites de lo biológicamente 
 \caption{Sensibilidad de la clasificación de ALT al umbral elegido (n=583).}
 \end{figure}
 
-El dataset presenta una brecha en la tasa de diagnóstico positivo: \textbf{73.47\% en hombres frente al 64.79\% en mujeres}, \textbf{8.7 puntos porcentuales}. Describirla es sencillo; el aporte de este trabajo es \textbf{medir un mecanismo concreto} por el que podría producirse.
+El dataset presenta una brecha en la tasa de diagnóstico positivo: \textbf{73.47\% en hombres frente al 64.79\% en mujeres}, \textbf{8.7 puntos porcentuales}. Con n=142 mujeres, el test exacto de Fisher da \textbf{p = 0.055} (IC 95\%: $-$0.2 a +17.6~pp, cruza el cero) --- \textbf{en el límite de la significancia convencional}. El aporte de este trabajo es \textbf{medir un mecanismo concreto} que, si la brecha es real, contribuiría a producirla.
 
 Durante décadas los laboratorios emplearon un \textbf{umbral único de ALT de 40~U/L}. En 2002, Prati et al. midieron ALT en 6835 donantes de sangre sanos y establecieron que \textbf{las mujeres sanas presentan valores naturalmente más bajos}: el límite superior de normalidad es \textbf{30~U/L en hombres y 19~U/L en mujeres}, criterio adoptado por el ACG en 2017 y la AASLD en 2023. Un umbral único de 40 queda calibrado, sin proponérselo, mucho más cerca del techo masculino.
 
@@ -514,7 +516,7 @@ Durante décadas los laboratorios emplearon un \textbf{umbral único de ALT de 4
 
 Cambiar el criterio reclasifica a \textbf{la mitad de las mujeres} y a \textbf{una sexta parte de los hombres}: un impacto \textbf{tres veces mayor} sobre ellas. Bajo el umbral unisex las mujeres aparecen \textit{menos} afectadas que los hombres; bajo el umbral por sexo, \textit{más}: \textbf{la ordenación entre sexos se invierte al cambiar la regla de medida}. Entre los etiquetados como no hepáticos, el \textbf{68.0\%} de las mujeres presenta ALT por encima de su límite femenino, frente al \textbf{41.0\%} de los hombres.
 
-\textbf{Caveat necesario:} parte de la asimetría es aritmética, ya que la ventana femenina (19--40) es más ancha que la masculina (30--40). Lo que \textbf{no} es aritmético es que \textbf{70 de las 142 mujeres tengan efectivamente su ALT dentro de esa franja}: una ventana ancha solo atrapa gente si hay gente dentro.
+\textbf{Caveat necesario:} parte de la asimetría es aritmética, ya que la ventana femenina (19--40) es más ancha que la masculina (30--40). Lo que \textbf{no} es aritmético es que \textbf{70 de las 142 mujeres tengan efectivamente su ALT dentro de esa franja}: una ventana ancha solo atrapa gente si hay gente dentro. Ajustando por ese ancho, la densidad femenina en su franja (0.0235/U$\cdot$L) es \textbf{$\sim$40\% mayor} que la masculina en la suya (0.0168/U$\cdot$L): no se explica solo por el ancho.
 
 \textbf{Puede afirmarse} que la población femenina está \textbf{desproporcionadamente concentrada en el rango donde la elección del umbral decide el resultado}. \textbf{No puede afirmarse} que los clínicos usaran el umbral de 40, que esas mujeres estén mal diagnosticadas, ni que esto explique toda la brecha. Es un \textbf{análisis de sensibilidad}: no prueba una causa, mide cuánto depende un resultado de una decisión metodológica.
 
@@ -561,7 +563,7 @@ En el eje etario el sesgo \textbf{se invierte según la variable}: en \texttt{Al
 
 \textbf{Sobre el preprocesamiento.} Las decisiones fueron: conservar los 13 duplicados (impacto medido despreciable), marcar como faltantes las 3 filas bioquímicamente imposibles sin eliminarlas, imputar por media los 4 nulos originales documentando su defecto, escalar con Z-Score y \textbf{conservar todos los valores atípicos} por tratarse de pacientes reales y graves.
 
-\textbf{Sobre la metodología.} Ninguna afirmación clínica se apoya en intuición: cada umbral y criterio procede de fuentes primarias documentadas y versionadas en el repositorio (guías ACG/AASLD, estudios de intervalos de referencia, proyecto CALIPER, marco de calidad de datos de Kahn et al.). Tres iteraciones CRISP-DM quedaron registradas con fecha, disparador y decisión.
+\textbf{Sobre la metodología.} Ninguna afirmación clínica se apoya en intuición: cada umbral y criterio procede de fuentes primarias documentadas y versionadas en el repositorio (guías ACG/AASLD, estudios de intervalos de referencia, proyecto CALIPER, marco de calidad de datos de Kahn et al.). Cuatro iteraciones CRISP-DM quedaron registradas con fecha, disparador y decisión.
 
 \textbf{Lo que este trabajo aporta más allá del enunciado:} la constatación de que \textbf{un pipeline de datos aparentemente neutro puede introducir sesgo por sexo en al menos dos puntos independientes} ---la elección del umbral diagnóstico y el tratamiento de valores atípicos--- sin que ninguna decisión explícita lo persiga. Ambos son medibles \textbf{antes de entrenar modelo alguno}, y ambos afectan de forma desigual al subgrupo minoritario.
 
@@ -580,6 +582,7 @@ En el eje etario el sesgo \textbf{se invierte según la variable}: en \texttt{Al
 \item Ramana, B. V. \& Venkateswarlu, N. B. \textit{ILPD (Indian Liver Patient Dataset).} UCI Machine Learning Repository. DOI 10.24432/C5D02C
 \item Naciones Unidas, \textit{Demographic Yearbook} --- notas metodológicas sobre el índice de Whipple.
 \item CLSI EP28-A3c / C28-A3, \textit{Defining, Establishing, and Verifying Reference Intervals in the Clinical Laboratory.}
+\item Chang, S.-W. et al. (2007). \textit{Study on Analytical and Clinically Reportable Ranges.} Korean J Clin Lab Sci, 39(1), 31--36.
 \end{itemize}
 
 \vspace{0.4em}
@@ -601,11 +604,11 @@ reproducible de principio a fin:
 \textbf{Qué contiene} & \textbf{Por qué puede interesar} \\
 \midrule
 \texttt{notebooks/act1\_anexo.ipynb} & El código de las ocho tareas en orden literal T1$\rightarrow$T8, ejecutado y con salidas \\
-\texttt{notebooks/02\_eda.ipynb} & Análisis de sensibilidad del umbral de ALT por sexo, y la confusión de \texttt{Alkphos} con la edad \\
-\texttt{notebooks/02c\_eda\_clustering.ipynb} & Clustering jerárquico estratificado por edad y sexo; demuestra empíricamente por qué no se pueden derivar umbrales de esta cohorte \\
+\texttt{notebooks/02\_eda.ipynb} & Sensibilidad del umbral de ALT por sexo y confusión de \texttt{Alkphos} con la edad \\
+\texttt{notebooks/02c\_eda\_clustering.ipynb} & Clustering por edad y sexo; por qué no se pueden derivar umbrales de esta cohorte \\
 \texttt{notebooks/03\_preprocessing.ipynb} & El desarrollo completo de T6--T8, con los conteos estratificados de valores atípicos \\
 \texttt{docs/data\_dictionary.md} & Significado clínico, unidades y rangos de referencia de las 11 variables \\
-\texttt{docs/CHANGELOG\_iteraciones.md} & Los tres \textit{loops} CRISP-DM, con fecha, disparador y decisión tomada \\
+\texttt{docs/CHANGELOG\_iteraciones.md} & Los cuatro \textit{loops} CRISP-DM, con fecha, disparador y decisión tomada \\
 \texttt{docs/adr/} & Cuatro decisiones de ingeniería razonadas, incluidas las alternativas descartadas \\
 \texttt{docs/fuentes/} & Las consultas bibliográficas que fundamentan cada umbral y criterio citado \\
 \bottomrule

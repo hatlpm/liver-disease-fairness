@@ -67,7 +67,7 @@ verificación directa de la documentación oficial de UCI.
 | **Q9** | **Age heaping** — índice de Whipple **163.3**, categoría "Tosca" (ONU) | 63% más personas en edades múltiplo de 5 de las esperables. Las edades se estimaron, no se leyeron de un documento |
 | **Q7** | **Resuelto:** `Age = 90` es *top-coding*, no una edad | Doc. oficial UCI: *"any patient whose age exceeded 89 is listed as being of age '90'"* |
 | — | La metadata de UCI declara "Missing values: No" pese a los 4 nulos reales | Contradicción documentada; se audita el dato, no la ficha |
-| — | **ALP confundida por edad:** mediana 320 en menores vs ~200 en adultos | Rangos pediátricos 129–468 U/L según edad y sexo (CALIPER, Zierk 2017). CLSI C28-A3 exige particionar antes de aplicar Tukey |
+| — | **ALP confundida por edad:** mediana 320 en menores vs ~200 en adultos | Rangos pediátricos 129–468 U/L según edad y sexo (mayoría de las filas: Children's Minnesota Lab, hoja de laboratorio hospitalario; CALIPER/Zierk 2017 respaldan el principio general, no la mayoría de estos números — corregido tras auditoría externa, 2026-08-15). CLSI C28-A3 exige particionar antes de aplicar Tukey |
 | — | **Sensibilidad de umbral de ALT por sexo** | Al pasar de umbral unisex (40) a sexo-específico (30 H / 19 M): mujeres +49.3 pp vs hombres +15.6 pp |
 | — | **De Ritis:** 18.0% >2, 36.3% <1, mediana 1.22 | Sugiere heterogeneidad no capturada por la etiqueta binaria — **sin bimodalidad clara**, formulado como hipótesis |
 
@@ -248,3 +248,94 @@ otro.
 evidencia nueva la hipótesis de sub-diagnóstico registrada en Loop A, y añade
 un mecanismo candidato que no estaba en la lista: **el preprocesamiento
 mismo**.
+
+---
+
+## 2026-08-15 — Loop D: auditoría metodológica externa
+
+**Disparador:** una revisión metodológica independiente del proyecto completo
+(no del equipo, un revisor externo) encontró 8 hallazgos, ejecutando el
+código y recalculando cifras en vez de solo leer el informe. Dos se
+calificaron de gravedad crítica.
+
+**Hallazgos y decisiones (todas, salvo la nº4, aprobadas explícitamente por
+el usuario antes de ejecutarse — ver detalle en `AGENTS.md`, checkpoint
+2026-08-15):**
+
+1. **La brecha de diagnóstico por sexo (8.7 pp) nunca se probó
+   estadísticamente.** Con n=142 mujeres, el test exacto de Fisher da
+   **p = 0.055** (IC 95% de la diferencia: −0.2 a +17.6 pp, cruza el cero) —
+   en el límite de la significancia convencional. **Decisión:** agregar la
+   prueba y suavizar el lenguaje de "hallazgo principal" a "brecha
+   observada, y un mecanismo candidato" en `informe_act1.md`/`.tex` y
+   `02_eda.ipynb`. No invalida el análisis de sensibilidad de ALT, que sigue
+   siendo un mecanismo evaluable de forma independiente.
+2. **El "cluster de severidad" de `02c_eda_clustering.ipynb` es
+   parcialmente circular.** Se etiqueta usando la mediana de `TB`, que ya es
+   la 2.ª variable más correlacionada con `Selector` de las 9. **Decisión:**
+   se agregó un chequeo directo — ordenar solo por `TB` reproduce 54–81% del
+   mismo cluster (índice de Jaccard) y, en 3 de 5 estratos, casi la misma
+   tasa de diagnóstico. La tabla de honestidad metodológica del notebook se
+   corrigió para reflejarlo en vez de presentar el hallazgo como estructura
+   multivariada nueva sin matiz.
+3. **Los límites biológicos de T8/F3-R12 no tenían fuente citada**
+   (`TP` 2.0–12.0, `ALB` 0.5–6.5, `A/G Ratio` 0.1–5.0, `Sgot` 1–20 000).
+   **Decisión:** se investigó (`docs/fuentes/Consulta_5.md`). Para el techo
+   de `Sgot` existe fuente real y verificable — Chang et al. (2007), rango
+   clínicamente reportable, 7 446 U/L, más estricto que el anterior sin
+   fuente — adoptada en `src/config.py`. Para `TP`, `ALB` y `A/G Ratio` no se
+   encontró una fuente publicada verificable con la confianza que exige el
+   protocolo del proyecto: se declaran explícitamente como estimación
+   razonada del equipo, no como cita clínica. *(Corrección durante la
+   implementación: el primer intento también adoptó el **piso** de Chang et
+   al., 24 U/L, para `Sgot` — error, porque ese piso es el mínimo verificado
+   por esa prueba de calibración de instrumento, no un piso biológico; un
+   AST de 10 U/L es sano y normal, y 124 pacientes del ILPD quedaban
+   marcados como "erróneos" por ese piso mal aplicado. Corregido: el piso de
+   `Sgot` vuelve a ser 1, sin necesidad de cita.)*
+4. **El índice de Whipple (Q9) se aplica a una cohorte hospitalaria sin
+   discutir que fue diseñado para datos censales.** **Decisión:** párrafo de
+   limitación explícito en `informe_act1.md`/`.tex` y `data_dictionary.md`.
+   No se retracta el valor 163.3 (se reverificó, es correcto) ni la
+   conclusión de que las edades están redondeadas — se declara la
+   incertidumbre sobre la transferencia de la escala de interpretación de la
+   ONU a un contexto no censal. Se registró además, como pregunta abierta
+   sin investigar a fondo, un posible artefacto adicional de *heaping* o
+   *top-coding* en `Age = 60` (34 pacientes, frente a 14 en 58 y 5 en 61).
+5. **Atribución de fuente inflada:** el rango de ALP pediátrica (129–468
+   U/L) se citaba como "CALIPER, Zierk 2017", pero la mayoría de las filas
+   de la tabla real vienen de una hoja de laboratorio hospitalario
+   (Children's Minnesota Lab), no de esos papers revisados por pares.
+   **Decisión:** corregir la cita en `02_eda.ipynb` y aquí mismo (§ Loop C,
+   arriba) para que refleje la fuente real de cada número.
+6. **Las estadísticas oficiales de T3 (`TB`/`DB`) incluyen 2 valores que T2
+   (Q8) ya calificó de "bioquímicamente imposibles".** **Decisión:** nota de
+   sensibilidad (con/sin esas 3 filas) en `02_eda.ipynb`, `act1_anexo.ipynb`
+   e `informe_act1.md`/`.tex`, con el mismo criterio ya usado para los 13
+   duplicados en §3.2. **Los números oficiales de T3 no se modifican** —
+   afectan a un criterio de la rúbrica (C2) y ya están en el PDF entregado;
+   se agregó transparencia, no un recálculo.
+7. **Los 6 nulos sin imputar (3 `TB` + 3 `DB`) se propagan en silencio a los
+   tres CSV de `data/processed/`**, incluidos los dos "escalados" — sklearn
+   no falla con `NaN`, lo deja pasar. **Decisión:** nota explícita en
+   `data_dictionary.md` § 4.1 para que la futura Fase 4 no los descubra por
+   accidente.
+8. **El caveat aritmético del umbral de ALT** ("la ventana femenina es más
+   ancha") no estaba cuantificado. **Decisión:** se agregó un chequeo de
+   densidad por unidad de ancho — las mujeres concentran ~40% más densidad
+   que los hombres en su respectiva franja, incluso ajustando por el ancho —
+   como corroboración independiente, en `02_eda.ipynb` e
+   `informe_act1.md`/`.tex`.
+
+**Verificación técnica.** Los 4 notebooks modificados
+(`02_eda.ipynb`, `02c_eda_clustering.ipynb`, `03_preprocessing.ipynb`,
+`act1_anexo.ipynb`) se re-ejecutaron *restart & run all* tras cada cambio —
+**0 errores** en los cuatro. `reports/informe_act1.pdf` se recompiló.
+
+**Impacto:** ninguna de las 8 correcciones cambia una conclusión central del
+proyecto (todas eran matices de rigor, no errores de cómputo), pero sí
+cambia cuánta certeza transmite el lenguaje en dos puntos (la brecha de
+sexo, el cluster de severidad) y corrige trazabilidad de fuentes en otros
+dos. Se registra íntegro por transparencia, siguiendo la misma regla de oro
+que el proyecto aplica a sus propios *loops*: todo hallazgo que obliga a
+revisar una fase anterior se documenta con fecha, disparador y decisión.

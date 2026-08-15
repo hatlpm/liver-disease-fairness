@@ -78,6 +78,29 @@ no agudo.
    reportaron de memoria, no se leyeron de un documento. **Error práctico
    estimado: ±2–3 años.** Consecuencia: no usar franjas etarias estrechas.
 
+   > ⚠️ **Limitación de dominio (añadida tras auditoría externa, 2026-08-15).**
+   > El índice de Whipple y la escala de la ONU que lo interpreta fueron
+   > diseñados para datos **censales**, donde la estructura etaria refleja a
+   > la población general. El ILPD es una cohorte **hospitalaria**: quién
+   > aparece en los datos depende de quién buscó atención médica, no de un
+   > muestreo poblacional. `docs/fuentes/Consulta_4.md` (la fuente del
+   > índice) no discute su aplicabilidad fuera de contexto censal, y el
+   > proyecto tampoco lo había hecho hasta ahora. El valor 163,3 en sí es
+   > correcto aritméticamente — se verificó de forma independiente — pero la
+   > *categoría cualitativa* ("Tosca") toma prestada su validez de una escala
+   > calibrada para un tipo de dato distinto. No se retracta la conclusión
+   > (las edades sí parecen redondeadas), pero se declara la incertidumbre
+   > sobre cuánto pesa esa etiqueta específica en un dataset hospitalario.
+   >
+   > **Nota abierta, no investigada a fondo:** la distribución de `Age`
+   > muestra un pico inusual en **Age = 60** (34 pacientes, frente a 14 en
+   > 58 y 5 en 61) — justo en el límite entre las bandas `40-59` y `60-120`
+   > que este proyecto usa en sus análisis estratificados. Podría ser otro
+   > artefacto de redondeo o un tope administrativo similar al de `Age = 90`
+   > (Q7), pero no se confirmó documentalmente. Queda registrado como
+   > pregunta abierta para una futura revisión, no como problema de calidad
+   > confirmado.
+
 ### Eje 1 — Daño celular
 
 | Columna | Nombre clínico | Qué mide | Unidad | Ref. adulto |
@@ -137,7 +160,13 @@ crecimiento tiene ALP alta de forma completamente normal.**
 | 15–17 años | niñas | 50 – 117 |
 | **>19 años (adulto)** | ambos | **40 – 129** |
 
-*Fuente: Children's Minnesota Lab; CALIPER; Zierk et al. 2017. Ver `Consulta_2.md`.*
+*Fuente: la mayoría de estas filas provienen de Children's Minnesota Lab (hoja
+de referencia de laboratorio hospitalario, no revisada por pares). CALIPER y
+Zierk et al. (2017) respaldan el principio general — que la ALP pediátrica
+requiere partición por edad y sexo — pero no son la fuente directa de la
+mayoría de estos números tabulados. Corrección de atribución añadida tras
+auditoría externa, 2026-08-15. Ver `Consulta_2.md` para el detalle fila por
+fila.*
 
 **Consecuencia para este dataset:** hay **25 menores de 18 años** (el más joven
 de 4) mezclados con 558 adultos. Su mediana de ALP es **320** vs ~200–215 en
@@ -203,6 +232,25 @@ globulina es pequeña.
 
 ---
 
+## 4.1 Nulos residuales en `data/processed/` (añadido tras auditoría, 2026-08-15)
+
+⚠️ **Los tres CSV de `data/processed/` (`ilpd_procesado.csv`, `ilpd_zscore.csv`,
+`ilpd_log_zscore.csv`) tienen, cada uno, 6 celdas vacías: 3 en `TB` y 3 en
+`DB`.** Son las mismas 3 filas de Q8 (`DB > TB`), marcadas como faltantes en
+Fase 3 y **deliberadamente no imputadas** (ver §7.3 del informe: son valores
+medidos mal, no ausentes, y rellenarlos apilaría una invención sobre un error
+de laboratorio).
+
+Esto significa que **ningún archivo de `data/processed/` está 100% completo**,
+incluidos los dos que llevan "escalado" en el nombre — `StandardScaler` y
+`MinMaxScaler` de scikit-learn no fallan con `NaN`: calculan media/desviación
+ignorándolo y dejan el hueco en la salida. Quien use estos archivos en la
+Fase 4 (modelado) debe decidir explícitamente qué hacer con esas 3 filas antes
+de entrenar cualquier modelo — no van a fallar de forma ruidosa si simplemente
+se ignoran.
+
+---
+
 ## 5. Fuentes
 
 Las respuestas de investigación que respaldan los rangos de referencia y los
@@ -214,6 +262,7 @@ criterios metodológicos están versionadas en `docs/fuentes/`:
 | `Consulta_2.md` | ALP dependiente de edad; CALIPER; CLSI C28-A3; partición antes de Tukey |
 | `Consulta_3.md` | Cociente De Ritis: puntos de corte, validez y limitaciones |
 | `Consulta_4.md` | `DB > TB`; marco de calidad Kahn/OHDSI; índice de Whipple |
+| `Consulta_5.md` | Límites biológicamente posibles para T8/F3-R12 (añadida tras auditoría externa, 2026-08-15) |
 
 Referencias primarias principales:
 
@@ -224,3 +273,4 @@ Referencias primarias principales:
 - Kahn, M. et al. (2016). *A Harmonized Data Quality Assessment Terminology and Framework.* eGEMs.
 - Straw, I. & Wu, H. (2022). *Investigating for bias in healthcare algorithms.* BMJ Health Care Inform. DOI 10.1136/bmjhci-2021-100457
 - Ramana, B. & Venkateswarlu, N. ILPD, UCI ML Repository. DOI 10.24432/C5D02C
+- Chang, S.-W. et al. (2007). *Study on Analytical and Clinically Reportable Ranges.* Korean J Clin Lab Sci, 39(1), 31–36.

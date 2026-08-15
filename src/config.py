@@ -105,6 +105,30 @@ MIN_CLUSTER_SIZE = 5
 # orden. Ver el análisis de sensibilidad en 02c_eda_clustering.ipynb.
 SKEWED_COLS = ["TB", "DB", "Alkphos", "Sgpt", "Sgot"]
 
+# --- Límites biológicamente/analíticamente posibles (T8 / F3-R12) ---
+# Distinguen "outlier estadístico" (raro pero posible) de "outlier erróneo"
+# (fuera de lo que un instrumento o un paciente real podrían producir).
+# `Sgot` (techo): rango clínicamente reportable de Chang et al. (2007),
+# Korean J Clin Lab Sci 39(1):31-36 — verificación de linealidad con
+# instrumentos reales de laboratorio. Fuente real, ver Consulta_5.md.
+# El PISO de Sgot (1) NO viene de esa fuente: el 24 de Chang et al. es el
+# mínimo verificado por *ese estudio de calibración*, no un piso biológico
+# — un AST de 10 U/L es perfectamente sano y normal (10 pacientes del ILPD
+# lo tienen). Se mantiene 1 como piso trivial ("no puede ser negativo ni
+# cero"), sin necesidad de cita.
+# `TP`, `ALB`, `A/G Ratio` (los 4 límites): NO tienen fuente publicada
+# verificable (búsqueda documentada en Consulta_5.md); son una estimación
+# razonada por el equipo, no una cita clínica, y se declaran así en el
+# informe.
+BIOLOGICAL_LIMITS = {
+    "TP": (2.0, 12.0),
+    "ALB": (0.5, 6.5),
+    "A/G Ratio": (0.1, 5.0),
+    "Sgot": (1, 7446),
+}
+# Solo el TECHO de Sgot tiene fuente citada; el piso (1) es trivial, no clínico.
+BIOLOGICAL_LIMITS_SOURCED = {"Sgot"}
+
 # --- Índice de Whipple (age heaping) ---
 # Rango canónico 23-62 y dígitos terminales 0/5. Escala ONU en utils.
 WHIPPLE_AGE_RANGE = (23, 62)

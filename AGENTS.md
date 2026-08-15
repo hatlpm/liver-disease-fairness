@@ -91,6 +91,7 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | 2c — EDA clustering/PCA | `feature/fase-2c-eda-clustering` → mezclada a `main` (2026-07-28) | ✅ Cerrada. Clustering jerárquico edad × sexo, revisado tras observaciones del usuario: se corrigieron los clusters de 1-4 personas (causa: distancias euclídeas sobre variables crudas con asimetría 10) y una contradicción interna. Exp 1 se reporta en dos variantes (crudo vs `log1p`) como análisis de sensibilidad. Incluye control de sesgo del propio análisis (ALT es 4.ª de 9 en separación). Ver CHANGELOG § 2026-07-28. |
 | 3 — Preprocessing | `feature/fase-3-preprocessing` → mezclada a `main` (2026-07-28) | ✅ Cerrada. T6, T7 y T8 completos: 39 celdas, 0 errores, 13/13 requisitos (9 `[M]` + 4 `[V]`). Loop B registrado. Aprobada por el usuario. |
 | E — Entregables | `feature/fase-e-entregables` | ✅ **Completa.** `act1_anexo.ipynb` (E2, 32 celdas, 0 errores) e `informe_act1` en Markdown, LaTeX y **PDF compilado de 10 páginas exactas**. README de portafolio actualizado. Pendiente de merge a `main`. |
+| Auditoría externa | (sin rama propia; `feature/fase-e-entregables` ya estaba mezclada a `main`, correcciones aplicadas directamente sobre `main`) | ✅ **Aplicada (2026-08-15).** Auditoría metodológica independiente encontró 8 hallazgos; los 8 se corrigieron con decisiones estadísticas/metodológicas aprobadas explícitamente por el usuario. Ver checkpoint más abajo y `docs/CHANGELOG_iteraciones.md` § 2026-08-15. |
 
 > Actualiza esta tabla al cerrar cada fase. Es lo primero que debe leer un
 > agente nuevo para saber dónde retomar.
@@ -130,10 +131,38 @@ visualmente.
 
 ### Qué queda
 
-- Merge de `feature/fase-e-entregables` a `main`.
 - Fases 4–7 (modelado, auditoría de *fairness*, pipeline, dashboard):
   requieren un PRD nuevo. Las notas de traspaso están en la última celda de
   cada notebook modular.
+
+## 🔖 Checkpoint — Auditoría externa aplicada (2026-08-15)
+
+Una revisión metodológica independiente auditó el proyecto completo y
+encontró 8 hallazgos (2 críticos, 2 altos, 3 medios, 1 bajo). Los 8 se
+corrigieron. Las decisiones con juicio estadístico/metodológico real se
+presentaron al usuario en español simple, sin ambigüedad, con los archivos
+que se iban a tocar, y **se ejecutaron solo tras su aprobación explícita**.
+
+| # | Hallazgo | Decisión aprobada | Archivos tocados |
+|---|---|---|---|
+| 1 | Brecha de 8.7 pp sin prueba de significancia | Agregar test exacto de Fisher (p=0.055, IC cruza 0) + suavizar "hallazgo principal" | `02_eda.ipynb`, `informe_act1.md/.tex`, `CHANGELOG` |
+| 2 | Circularidad en el "cluster de severidad" (02c) | Agregar chequeo de solape cluster-vs-TB (Jaccard 0.54–0.81) + corregir tabla de honestidad | `02c_eda_clustering.ipynb` |
+| 3 | Límites biológicos de T8 sin fuente | Sgot: fuente real (Chang et al. 2007); TP/ALB/A-G Ratio: declarados como estimación del equipo | `src/config.py`, `03_preprocessing.ipynb`, `act1_anexo.ipynb`, `Consulta_5.md`, `informe_act1.md/.tex` |
+| 4 | Whipple aplicado fuera de su dominio censal | Párrafo de limitación explícito + nota abierta sobre posible heaping en `Age=60` | `data_dictionary.md`, `informe_act1.md/.tex` |
+| 5 | Atribución de fuente inflada (ALP pediátrica) | Corregir cita: mayoría de filas son de un sitio de hospital, no de CALIPER/Zierk | `02_eda.ipynb`, `CHANGELOG`, `data_dictionary.md` |
+| 6 | T3 incluye 2 valores ya calificados "imposibles" | Nota de sensibilidad (con/sin esas filas), sin tocar los números oficiales | `02_eda.ipynb`, `act1_anexo.ipynb`, `informe_act1.md/.tex` |
+| 7 | Nulos residuales sin flag en `data/processed/` | Nota explícita en el diccionario de datos | `data_dictionary.md` |
+| 8 | Caveat de ALT sin cuantificar | Chequeo de densidad por unidad de ancho (mujeres ~40% más concentradas) | `02_eda.ipynb`, `informe_act1.md/.tex` |
+
+⚠️ **Nota sobre el Hallazgo 4:** se le pasó al usuario por alto en la ronda de
+aprobación explícita (error del agente) y se resolvió de la forma de bajo
+riesgo ya anunciada (solo texto de limitación, ninguna conclusión ni número
+existente se retracta). Queda señalado para que el usuario lo confirme
+después del hecho.
+
+Los 4 notebooks modificados (`02_eda.ipynb`, `02c_eda_clustering.ipynb`,
+`03_preprocessing.ipynb`, `act1_anexo.ipynb`) se re-ejecutaron *restart & run
+all* después de cada cambio — **0 errores**. El PDF se recompiló.
 
 ### Advertencias permanentes
 
@@ -168,10 +197,13 @@ acordado:
    de intervalos de referencia, marcos de calidad de datos).
 3. **Versionar la respuesta completa con sus referencias en `docs/fuentes/`.**
 
-Las cuatro consultas realizadas cubren: rangos de referencia por sexo · ALP
+Las cinco consultas realizadas cubren: rangos de referencia por sexo · ALP
 dependiente de edad · cociente De Ritis · restricciones bioquímicas y calidad
-de captura. **Este protocolo es parte del valor del proyecto, no un andamio
-temporal** — hace cada número auditable.
+de captura · límites biológicamente posibles para T8/F3-R12 (`Consulta_5.md`,
+añadida 2026-08-15 tras una auditoría externa que señaló que esos límites no
+tenían fuente citada — ver checkpoint más abajo). **Este protocolo es parte
+del valor del proyecto, no un andamio temporal** — hace cada número auditable,
+incluido frente a revisiones externas.
 
 > ⚠️ **Al explicar hallazgos al usuario:** no asumir conocimiento clínico.
 > Explicar primero qué mide la variable, su unidad y su rango de referencia;
