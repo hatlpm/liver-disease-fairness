@@ -207,11 +207,12 @@ que se iban a tocar, y **se ejecutaron solo tras su aprobación explícita**.
 | 7 | Nulos residuales sin flag en `data/processed/` | Nota explícita en el diccionario de datos | `data_dictionary.md` |
 | 8 | Caveat de ALT sin cuantificar | Chequeo de densidad por unidad de ancho (mujeres ~40% más concentradas) | `02_eda.ipynb`, `informe_act1.md/.tex` |
 
-⚠️ **Nota sobre el Hallazgo 4:** se le pasó al usuario por alto en la ronda de
-aprobación explícita (error del agente) y se resolvió de la forma de bajo
-riesgo ya anunciada (solo texto de limitación, ninguna conclusión ni número
-existente se retracta). Queda señalado para que el usuario lo confirme
-después del hecho.
+✅ **Nota sobre el Hallazgo 4 — cerrado (2026-08-15).** Se le pasó al usuario
+por alto en la ronda de aprobación explícita (error del agente) y se resolvió
+de la forma de bajo riesgo ya anunciada (solo texto de limitación, ninguna
+conclusión ni número existente se retracta). **El usuario revisó los tres
+fragmentos exactos y los aprobó explícitamente después del hecho.** No quedan
+cambios del Loop D sin aprobar.
 
 Los 4 notebooks modificados (`02_eda.ipynb`, `02c_eda_clustering.ipynb`,
 `03_preprocessing.ipynb`, `act1_anexo.ipynb`) se re-ejecutaron *restart & run
