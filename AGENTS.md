@@ -128,7 +128,7 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 
 | Fase | Contenido | Estado |
 |------|-----------|--------|
-| 4 — Contrato de datos y *split* | T1, T3: deduplicación, reconstrucción de `A/G Ratio`, split estratificado | ⬜ Sin empezar |
+| 4 — Contrato de datos y *split* | T1, T3: deduplicación, reconstrucción de `A/G Ratio`, split estratificado | ✅ Cerrada (2026-08-15). `feature/fase-4-split-datos`: `params.yaml`, `src/data.py`, `src/splitting.py`, `notebooks/04_split.ipynb` (37 celdas, 0 errores, emparejado con `.py` vía jupytext), 12 tests verdes (`test_fase4_split.py` + `test_global.py`), ADR 0006 y 0007. Split congelado en `data/processed/split_indices.json` (no versionado, regenerable). Pendiente de confirmación del usuario antes de mezclar. |
 | 5 — Pipeline y balanceo | T1, T2: `imblearn.Pipeline`, SMOTE solo en train | ⬜ Sin empezar |
 | 6A — Selección de variables | `[V]` Selección **dentro** del `Pipeline`; decisión sobre `Gender` | ⬜ Sin empezar |
 | 6 — Algoritmos e hiperparámetros | T4, T5: los 5 algoritmos + Grid Search con rejillas de `params.yaml` | ⬜ Sin empezar |
@@ -137,6 +137,28 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | 9 — Auditoría de equidad | Valor agregado: FNR por sexo vía CV repetida | ⬜ Sin empezar |
 | E2 — Entregables | Informe ≤15 págs + `act2_anexo.ipynb` | ⬜ Sin empezar |
 | P — Producción (MLOps) | `src/` + `tests/` + CI/CD + tablero Streamlit | ⬜ Sin empezar |
+
+### ⚠️ Deuda técnica conocida — `ruff check .` (registrada 2026-08-15, Fase 4)
+
+La Fase 4 configuró `ruff` en `pyproject.toml`
+(`extend-select = ["I", "B", "RUF"]`). Con esa configuración, `ruff check .`
+da **35 errores preexistentes**, ninguno introducido en la Fase 4 (el código
+nuevo de esa fase está limpio) — **no se tocan hasta que se monte CI** (Fase
+P), porque corregirlos en los notebooks obligaría a re-ejecutarlos y
+volver a verificar cifras ya entregadas:
+
+| Archivo | Errores | Reglas típicas |
+|---|---|---|
+| `src/utils.py` | 11 | `RUF002`/`RUF003` (guiones/× ambiguos en unicode dentro de docstrings y comentarios), `B905` (`zip()` sin `strict=`) |
+| `notebooks/03_preprocessing.ipynb` | 8 | mixto |
+| `notebooks/02_eda.ipynb` | 6 | mixto (incluye `F401` import sin usar) |
+| `notebooks/act1_anexo.ipynb` | 5 | mixto |
+| `notebooks/02c_eda_clustering.ipynb` | 5 | mixto (incluye `I001` imports desordenados) |
+
+`src/utils.py` no es un notebook — su deuda solo se hizo visible al activar
+`B`/`RUF` (antes de la Fase 4 no había `pyproject.toml` con reglas
+extendidas). Verificar el conteo vigente con `ruff check . --statistics`
+antes de asumir que sigue en 35.
 
 **Decisiones ya tomadas por el usuario (2026-08-15), antes de empezar:**
 

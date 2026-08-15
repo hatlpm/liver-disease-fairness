@@ -2,12 +2,15 @@
 
 from pathlib import Path
 
+import yaml
+
 # --- Rutas (relativas a la raíz del repo) ---
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_RAW_DIR = PROJECT_ROOT / "data" / "raw"
 DATA_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 FIGURES_DIR = PROJECT_ROOT / "reports" / "figures"
 RAW_DATA_PATH = DATA_RAW_DIR / "act_liver_disease.csv"
+PARAMS_PATH = PROJECT_ROOT / "params.yaml"
 
 # --- Reproducibilidad ---
 RANDOM_STATE = 42
@@ -72,7 +75,7 @@ DE_RITIS_VIRAL = 1.0
 AGE_ADULT_MIN = 18
 AGE_BANDS = [(0, 17), (18, 39), (40, 59), (60, 120)]
 
-# --- Fase 2c: clustering jerárquico exploratorio (edad × sexo) ---
+# --- Fase 2c: clustering jerárquico exploratorio (edad x sexo) ---
 # Método de enlace estándar para clustering jerárquico con distancia euclídea
 # sobre variables estandarizadas (minimiza varianza intra-cluster).
 CLUSTER_LINKAGE_METHOD = "ward"
@@ -157,3 +160,26 @@ INK_SECONDARY = "#52514e"
 INK_MUTED = "#898781"
 GRID_COLOR = "#e1e0d9"
 SURFACE = "#fcfcfb"
+
+
+# --- Actividad 2: parámetros del experimento (params.yaml) ---
+def load_params(path: Path = PARAMS_PATH) -> dict:
+    """Carga los parámetros del experimento desde ``params.yaml``.
+
+    Fuente única de verdad para la Actividad 2: semilla, proporción del
+    split, rejillas de hiperparámetros y demás números del experimento que
+    no son constantes de dominio (esas viven arriba, en este mismo módulo).
+    Ver ``PRD_liver_disease_act2_fases_4-9.md`` §11.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        Ruta al archivo YAML de parámetros. Por defecto, ``PARAMS_PATH``.
+
+    Returns
+    -------
+    dict
+        Árbol de parámetros tal como está estructurado en ``params.yaml``.
+    """
+    with open(path, encoding="utf-8") as f:
+        return yaml.safe_load(f)

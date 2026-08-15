@@ -1,0 +1,60 @@
+# Parámetros del experimento de la Actividad 2 (Fases 4-9).
+#
+# Fuente única de verdad para todo número que no sea una constante de dominio
+# (esas van en src/config.py). Ver PRD_liver_disease_act2_fases_4-9.md §11.
+#
+# Fase 4 consume solo `seed` y `split`. Las demás secciones (preprocessing,
+# balancing, cv, metrics, feature_selection, grids) pertenecen a fases
+# posteriores (5-9) pero se declaran completas desde ahora, según el
+# contenido mínimo obligatorio del PRD §11.2 -- así ninguna fase futura
+# necesita decidir un número por su cuenta.
+
+seed: 42
+
+split:
+  test_size: 0.2
+  stratify_by: ["Selector", "Gender"]
+  indices_path: "data/processed/split_indices.json"
+
+preprocessing:
+  imputer: {strategy: "median", add_indicator: true}
+  scalers: ["minmax", "zscore"]
+  scale_indicator: false
+
+balancing:
+  methods: ["none", "smote"]
+  smote: {k_neighbors: 5}
+
+cv:
+  tuning: {n_splits: 5, shuffle: true}
+  fairness: {n_splits: 5, n_repeats: 10}
+
+metrics:
+  average: "binary"
+  pos_label: 1
+  optimize_for: "f1"
+  decision_threshold: 0.5
+
+feature_selection:
+  enabled: true
+  method: "selectkbest"
+  k_values: [5, 7, 10]
+  include_gender: [true, false] # F6A-R4: ambas variantes obligatorias
+
+grids: # B1: fijas de antemano, no improvisadas en el notebook
+  logistic_regression:
+    C: [0.01, 0.1, 1, 10, 100]
+    solver: ["liblinear", "saga"]
+  knn:
+    n_neighbors: [3, 5, 7, 9, 11, 15]
+    weights: ["uniform", "distance"]
+  gaussian_nb:
+    var_smoothing: [1.0e-11, 1.0e-9, 1.0e-7]
+  decision_tree:
+    max_depth: [3, 5, 7, 10, null]
+    min_samples_leaf: [1, 5, 10]
+    criterion: ["gini", "entropy"]
+  svm:
+    C: [0.1, 1, 10]
+    kernel: ["linear", "rbf"]
+    gamma: ["scale", "auto"]

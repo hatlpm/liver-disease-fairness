@@ -2,7 +2,7 @@ venv/
 .ipynb_checkpoints/
 __pycache__/
 *.pyc
-data/processed/
+data/processed/*
 .DS_Store
 
 # LaTeX (auxiliares; el .tex y el .pdf si se versionan)
@@ -13,3 +13,8 @@ data/processed/
 *.synctex.gz
 *.fls
 *.fdb_latexmk
+
+# Excepción: el split congelado SÍ se versiona (F4-R9). No es un
+# derivado regenerable como los CSV, es el contrato de reproducibilidad
+# que garantiza que todas las fases usen el mismo train/test.
+!data/processed/split_indices.json

@@ -41,3 +41,5 @@ edita el original.
 | [0003](0003-sin-holdout-en-fases-0-3.md) | Sin *holdout* de validación en las Fases 0–3; *golden set* se extrae más adelante del raw inmutable |
 | [0004](0004-umbrales-referencia-sexo-especificos.md) | Umbrales de referencia sexo-específicos (Prati/ACG/AASLD) como criterio del proyecto |
 | [0005](0005-prd-fuera-del-repositorio.md) | El PRD permanece fuera del repositorio, sin versionar |
+| [0006](0006-deduplicar-antes-del-split.md) | Deduplicar antes del split, no después (fuga de datos crítica de la Actividad 2) |
+| [0007](0007-tratamiento-de-nulos.md) | Tratamiento de nulos: reconstrucción determinista de `A/G Ratio` + imputación con indicador dentro del `Pipeline` |

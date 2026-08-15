@@ -1,0 +1,14 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+extend-select = ["I", "B", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Los .py emparejados con jupytext conservan las expresiones sueltas
+# del notebook (df.head(), params) que muestran resultado en la celda.
+"notebooks/*.py" = ["B018"]
