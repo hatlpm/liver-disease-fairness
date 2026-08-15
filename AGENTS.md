@@ -130,13 +130,60 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 |------|-----------|--------|
 | 4 — Contrato de datos y *split* | T1, T3: deduplicación, reconstrucción de `A/G Ratio`, split estratificado | ✅ Cerrada (2026-08-15). `feature/fase-4-split-datos` → mezclada a `main` (fast-forward) y borrada. `params.yaml`, `src/data.py`, `src/splitting.py`, `notebooks/04_split.ipynb` (37 celdas, 0 errores, emparejado con `.py` vía jupytext), 12 tests verdes (`test_fase4_split.py` + `test_global.py`), ADR 0006 y 0007. Split congelado en `data/processed/split_indices.json` (no versionado, regenerable). |
 | 5 — Pipeline y balanceo | T1, T2: `imblearn.Pipeline`, SMOTE solo en train | ✅ Cerrada (2026-08-15). `feature/fase-5-pipeline-balanceo`: `src/pipelines.py` (`build_pipeline`, fábrica de las 4 combinaciones {minmax,zscore}×{con,sin SMOTE}), `notebooks/05_pipeline.ipynb` (35 celdas, 0 errores, emparejado con `.py`), 8 tests nuevos (`test_fase5_pipeline.py`, 24 tests totales en verde), ADR-0011 (indicador de nulos con `MissingIndicator(features="all")`, no `add_indicator=True`, para blindar el ancho de columnas de cara a la Fase 9). SMOTE verificado: train 456→650 (325/131→325/325, 194 sintéticos), test siempre en 114. **F5-R8 — hallazgo central de la fase:** la comparación correcta no es train completo antes/después (24.56%→24.31%, diluida por las 456 filas reales que no cambian) sino minoría de train vs. sintéticos que la replican: **29.77% de mujeres en la minoría → 23.71% en los 194 sintéticos, brecha −6.06 pp**, descompuesta en dos causas independientes — truncamiento `int64` de `imbalanced-learn` hacia `Male=0` (−3.09 pp; 46 mujeres sintéticas reales vs. 52 con redondeo neutro) y geometría de los `k` vecinos de SMOTE, que no preserva la proporción de sexos aunque no hubiera ningún error de tipo de dato (−2.97 pp). SMOTE subrepresenta mujeres entre los sintéticos por mecánica propia, no por una decisión explícita — fijado en `test_smote_subrepresenta_mujeres_en_sinteticos` y anotado para que la Fase 9 lo retome al comparar la brecha de FNR con/sin SMOTE (F9-R4). `pyproject.toml` añade `ignore = ["RUF001", "RUF002"]` (ruido de puntuación en español); baseline de deuda heredada recalculado de 35 a 24 (`src/utils.py` bajó de 11 a 1). Pendiente de confirmación del usuario antes de mezclar. |
-| 6A — Selección de variables | `[V]` Selección **dentro** del `Pipeline`; decisión sobre `Gender` | ⬜ Sin empezar |
-| 6 — Algoritmos e hiperparámetros | T4, T5: los 5 algoritmos + Grid Search con rejillas de `params.yaml` | ⬜ Sin empezar |
+| 6A — Selección de variables | `[V]` Selección **dentro** del `Pipeline`; decisión sobre `Gender` | ✅ Cerrada (2026-08-15, pendiente de confirmación del usuario antes de mezclar). `feature/fase-6-modelos`: `src/pipelines.py::build_pipeline` extendido con `selector` opcional (paso `"selector"` entre `"preprocess"` y `"smote"`; `selector=None` reproduce la Fase 5 sin cambios, verificado). `tests/test_fase6a_seleccion.py` (3 tests: selección dentro del pipeline con reajuste demostrado por pliegue, equivalencia con Fase 5, ambas variantes de `Gender` construibles). **F6A-R4 — variante oficial: SIN `Gender`** para las Fases 6-8 (costo de rendimiento indistinguible del ruido de CV en los 5 modelos; no elimina el sesgo — la Fase 9 comparará ambas variantes, F9-R5). F6A-R3: VIF de `ALB`=8.99, `TP`=5.08, `A/G Ratio`=3.39 (no lineal, no hereda toda la colinealidad de sus componentes). |
+| 6 — Algoritmos e hiperparámetros | T4, T5: los 5 algoritmos + Grid Search con rejillas de `params.yaml` | ✅ Cerrada (2026-08-15, pendiente de confirmación del usuario antes de mezclar). `src/models.py` (los 5 estimadores, `build_search_grid` desde `params.yaml`, `build_cv`, `fit_grid_search`, `null_classifier_floor`). `notebooks/06_modelos.ipynb` (40 celdas, 20 de código, 0 errores, emparejado con `.py` vía jupytext, incluye nota de traspaso a la Fase 7 sobre encuadre clínico de las métricas y umbral de decisión). 9 tests nuevos (`test_fase6_modelos.py`, 33 tests totales en verde). **F6-R6 — hallazgo central de la fase (Trampa 1 del encargo):** `params.yaml` declaraba `metrics.optimize_for: "f1"` con `pos_label=1`, pero `Selector=1` (enfermo) es la clase MAYORITARIA (71.27% train) — el clasificador nulo "todos enfermos" saca F1=0.8323 sin aprender nada. Corregido a `"balanced_accuracy"` (suelo nulo 0.50 en cualquier split) — ver ADR-0012 y `docs/CHANGELOG_iteraciones.md` § Loop F. Verificado empíricamente: los 5 algoritmos superan el suelo de `balanced_accuracy` (0.67-0.72) y, como consecuencia esperada, quedan **por debajo** del suelo nulo de F1 (0.62-0.72 vs 0.8323) — fijado en `test_scoring_supera_el_suelo_nulo` para que no se lea como regresión. `gaussian_nb` es el peor de los 5 (F1=0.6234), coherente con F6-R8 (viola el supuesto de normalidad, asimetría hasta 10.5 en `Sgot`). Configuración base de ajuste (`params.yaml: tuning_baseline`): Z-Score + SMOTE, fijada para que la Fase 8 aísle el efecto del preprocesamiento sin confundirlo con un reajuste de hiperparámetros. |
 | 7 — Evaluación | T6, T7: métricas justificadas + tabla comparativa | ⬜ Sin empezar |
 | 8 — Experimento factorial | T8: {MinMax, Z-Score} × {SMOTE, sin SMOTE} × 5 modelos — **vale el 25%** | ⬜ Sin empezar |
 | 9 — Auditoría de equidad | Valor agregado: FNR por sexo vía CV repetida | ⬜ Sin empezar |
 | E2 — Entregables | Informe ≤15 págs + `act2_anexo.ipynb` | ⬜ Sin empezar |
 | P — Producción (MLOps) | `src/` + `tests/` + CI/CD + tablero Streamlit | ⬜ Sin empezar |
+
+### ⚠️ Riesgo conocido para la Fase 9 — indicador TB/DB constante en la CV repetida (traspaso de la Fase 6, 2026-08-15)
+
+**No resuelto a propósito: es decisión de la Fase 9, no de la 6/6A.**
+
+Cuando un pliegue de ENTRENAMIENTO de la validación cruzada no contiene
+ninguna de las 3 filas con `TB`/`DB` nulos (índices 246, 261, 279), el
+indicador `MissingIndicator(features="all")` queda constante en ese
+pliegue (0 en todas las filas) — no es un error, es exactamente el
+comportamiento que ADR-0011 garantiza (ancho de salida estable). Pero
+`f_classif` (el `score_func` de `SelectKBest` en la Fase 6A/6) calcula un
+F-estadístico basado en varianza entre grupos, y una columna constante
+tiene varianza 0: el cálculo da `0/0` y devuelve `NaN` para esa columna
+(reproducido: `UserWarning: Features [9 10] are constant` +
+`RuntimeWarning: invalid value encountered in divide`). `SelectKBest` no
+falla — simplemente nunca elige una columna con score `NaN`, así que el
+indicador queda **descartado en silencio** de ese pliegue, sin ningún
+aviso visible en un `GridSearchCV` normal.
+
+**Medido con `RepeatedStratifiedKFold(n_splits=5, n_repeats=10,
+random_state=42)`:**
+
+| Escenario | Población | Pliegues de entrenamiento sin ninguna fila nula |
+|---|---|---|
+| CV de ajuste de la Fase 6 (`StratifiedKFold(5)`, 5 pliegues) | train (456) | 0 de 5 |
+| CV de equidad de la Fase 9 (`RepeatedStratifiedKFold(5,10)`, 50 pliegues) | train (456) | **1 de 50** (pliegue #42, 0-indexado — reproducido y verificado: `SelectKBest` con `k=7` descarta las 2 columnas del indicador en ese pliegue) |
+| Mismo escenario | dataset completo (570) | 0 de 50 |
+
+La elección de población de la CV de la Fase 9 (¿train, o el dataset
+completo para que entren las ~142 mujeres que motivan F9-R2?) todavía no
+está tomada, y este hallazgo debería informarla: sobre el dataset
+completo el riesgo desaparece; sobre train, ocurre en el 2% de los
+ajustes.
+
+**Dos salidas posibles, a decidir en la Fase 9:**
+
+1. **Declararlo como limitación conocida.** En 1 de 50 ajustes (si la CV
+   corre sobre train), el modelo pierde temporalmente la señal "esta fila
+   fue imputada" para 3 filas. Su efecto sobre la FNR agregada de 50
+   ajustes es plausiblemente mínimo, pero debe **medirse**, no asumirse.
+2. **Blindarlo** — excluir las 2 columnas del indicador de la selección
+   de variables (que `SelectKBest` nunca las evalúe/descarte; p. ej.
+   pasarlas siempre como columnas fijas fuera del selector). Defendible
+   porque su valor informativo no viene de un contraste de varianza entre
+   clases (lo que mide `f_classif`) sino de marcar qué filas fueron
+   imputadas — no tiene sentido evaluarlas con el mismo criterio que las
+   variables clínicas.
 
 ### ⚠️ Deuda técnica conocida — `ruff check .` (registrada 2026-08-15, Fase 4; actualizada Fase 5)
 
@@ -296,11 +343,11 @@ all* después de cada cambio — **0 errores**. El PDF se recompiló.
 ## Dónde está cada tipo de decisión documentada
 
 - **Decisiones de ingeniería/tooling** (con consecuencias duraderas, ej. por
-  qué gitflow por fase, por qué este entorno de notebooks) → `docs/adr/`.
-  A hoy hay cuatro: `0001-gitflow-por-fase`, `0002-entorno-notebooks-sin-jupyterlab`,
-  `0003-sin-holdout-en-fases-0-3` (por qué no se aparta un holdout ahora y de
-  dónde saldrá el *golden set*) y `0004-umbrales-referencia-sexo-especificos`
-  (qué rangos clínicos se adoptan y por qué).
+  qué gitflow por fase, por qué esta métrica de optimización) → `docs/adr/`.
+  Índice completo y actualizado en `docs/adr/README.md` (no se duplica la
+  lista aquí para que no vuelva a quedar desactualizada como hasta el
+  2026-08-15, cuando esta sección seguía listando solo los 4 primeros ADR
+  pese a que ya existían 7 más).
 - **Hallazgos de datos que disparan un loop CRISP-DM** (ej. el EDA revela algo
   que obliga a revisar Fase 1 o Fase 3) → `docs/CHANGELOG_iteraciones.md`.
 - **Significado clínico de cada variable**, unidades, rangos de referencia y

@@ -44,3 +44,4 @@ edita el original.
 | [0006](0006-deduplicar-antes-del-split.md) | Deduplicar antes del split, no después (fuga de datos crítica de la Actividad 2) |
 | [0007](0007-tratamiento-de-nulos.md) | Tratamiento de nulos: reconstrucción determinista de `A/G Ratio` + imputación con indicador dentro del `Pipeline` |
 | [0011](0011-indicador-nulos-columntransformer-dos-ramas.md) | Indicador de nulos vía `ColumnTransformer` de dos ramas (`MissingIndicator(features="all")`), no `SimpleImputer(add_indicator=True)` |
+| [0012](0012-metrica-de-optimizacion-balanced-accuracy.md) | Métrica de optimización de `GridSearchCV`: `balanced_accuracy` en vez de F1 con clase positiva mayoritaria |

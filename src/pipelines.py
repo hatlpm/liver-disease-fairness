@@ -39,14 +39,17 @@ _SCALERS = {"minmax": MinMaxScaler, "zscore": StandardScaler}
 _INDICATOR_SOURCE_COLS = ["TB", "DB"]
 
 
-def build_pipeline(scaler: str, use_smote: bool, estimator, params: dict) -> ImbPipeline:
-    """Construye el `Pipeline` de preprocesamiento (+ balanceo) + estimador.
+def build_pipeline(
+    scaler: str, use_smote: bool, estimator, params: dict, selector=None
+) -> ImbPipeline:
+    """Construye el `Pipeline` de preprocesamiento (+ selección + balanceo) + estimador.
 
     Encadena, en este orden: imputación por mediana y escalado de las
     variables numéricas (F5-R2), un indicador de ancho fijo para los nulos
-    de `TB`/`DB` (F5-R3, sin escalar), opcionalmente `SMOTE` (F5-R4), y el
-    estimador que se le pase. Todo parámetro numérico (semilla, `k_neighbors`
-    de SMOTE, estrategia del imputador) sale de `params`, nunca literal.
+    de `TB`/`DB` (F5-R3, sin escalar), opcionalmente un paso de selección de
+    variables (F6A-R2), opcionalmente `SMOTE` (F5-R4), y el estimador que se
+    le pase. Todo parámetro numérico (semilla, `k_neighbors` de SMOTE,
+    estrategia del imputador) sale de `params`, nunca literal.
 
     Parameters
     ----------
@@ -55,9 +58,10 @@ def build_pipeline(scaler: str, use_smote: bool, estimator, params: dict) -> Imb
         ``params["preprocessing"]["scalers"]`` (hoy: ``"minmax"`` o
         ``"zscore"``).
     use_smote : bool
-        Si ``True``, añade un paso `SMOTE` entre el preprocesamiento y el
-        estimador. Si ``False``, el paso se omite por completo (no se deja
-        un `"passthrough"`: el `Pipeline` resultante tiene un paso menos).
+        Si ``True``, añade un paso `SMOTE` entre el preprocesamiento (y el
+        selector, si lo hay) y el estimador. Si ``False``, el paso se omite
+        por completo (no se deja un `"passthrough"`: el `Pipeline`
+        resultante tiene un paso menos).
     estimator : sklearn estimator
         Estimador final del pipeline. La Fase 5 no elige modelo (eso es la
         Fase 6): aquí se admite cualquier estimador compatible con la API de
@@ -65,16 +69,25 @@ def build_pipeline(scaler: str, use_smote: bool, estimator, params: dict) -> Imb
         cualquiera de los 5 algoritmos de fases posteriores).
     params : dict
         Árbol de parámetros de :func:`src.config.load_params`.
+    selector : sklearn transformer o None, opcional
+        Si se pasa (p. ej. ``SelectKBest(f_classif)``, sin ajustar), se
+        añade como paso ``"selector"`` entre ``"preprocess"`` y ``"smote"``
+        (F6A-R2, Trampa 2 del encargo de la Fase 6A: el selector se
+        reajusta dentro de cada pliegue de la validación cruzada, nunca se
+        aplica antes a `X` completo -- es la misma razón por la que el
+        escalador y `SMOTE` viven dentro del `Pipeline` y no fuera). Con
+        ``selector=None`` (por defecto), el `Pipeline` resultante es
+        idéntico al de la Fase 5.
 
     Returns
     -------
     imblearn.pipeline.Pipeline
-        Pipeline con pasos ``"preprocess"``, opcionalmente ``"smote"``, y
-        ``"estimator"``. Espera como entrada un DataFrame con exactamente
-        las columnas de `NUMERIC_COLS` + `"Gender"` (es decir,
-        ``load_modeling_data().drop(columns=["Selector"])``) -- nunca
-        incluir la columna objetivo, o el `remainder="passthrough"` la
-        dejaría entrar como si fuera una variable más.
+        Pipeline con pasos ``"preprocess"``, opcionalmente ``"selector"``,
+        opcionalmente ``"smote"``, y ``"estimator"``. Espera como entrada un
+        DataFrame con exactamente las columnas de `NUMERIC_COLS` +
+        `"Gender"` (es decir, ``load_modeling_data().drop(columns=["Selector"])``)
+        -- nunca incluir la columna objetivo, o el `remainder="passthrough"`
+        la dejaría entrar como si fuera una variable más.
 
     Raises
     ------
@@ -105,6 +118,8 @@ def build_pipeline(scaler: str, use_smote: bool, estimator, params: dict) -> Imb
     preprocess.set_output(transform="pandas")
 
     steps = [("preprocess", preprocess)]
+    if selector is not None:
+        steps.append(("selector", selector))
     if use_smote:
         steps.append(
             (

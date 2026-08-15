@@ -436,3 +436,70 @@ del error de intervalo descrito arriba.** Corregidas, las 41 coinciden.
 con el entorno nuevo — **0 errores**. Ninguna ruta local queda en el
 repositorio. Las 41 cifras publicadas coinciden con el recálculo
 independiente.
+
+---
+
+## 2026-08-15 — Loop F: Modeling → Data Preparation (métrica de optimización mal elegida)
+
+**Disparador:** al empezar la Fase 6 (ajuste de hiperparámetros de los 5
+algoritmos), antes de tocar el notebook se contrastó `params.yaml` contra el
+propio dataset. `metrics.optimize_for: "f1"` con `pos_label: 1` —
+declarado en la Fase 4/§11.2 del PRD, **antes de que existiera ningún
+modelo entrenado** — asume implícitamente que la clase positiva es la
+minoritaria (el caso típico para el que F1 se recomienda). En este dataset
+no lo es: `Selector = 1` (enfermo) es la clase **mayoritaria** (71.27% en
+train).
+
+**Hallazgo.** Medido sobre train (456 filas), el clasificador nulo que
+responde "todos enfermos" sin mirar ningún dato de entrada obtiene:
+
+| Métrica | Valor |
+|---|---|
+| accuracy | 0.7127 |
+| recall | 1.0000 |
+| precision | 0.7127 |
+| **F1** | **0.8323** |
+| balanced_accuracy | 0.5000 |
+
+(Sobre test, congelado desde la Fase 4 y no tocado en esta fase: accuracy
+0.7105, recall 1.0000, precision 0.7105, F1 0.8308 — cifras de referencia
+del PRD, recalculadas aquí solo como verificación, nunca usadas para
+ajustar nada.)
+
+Optimizar `GridSearchCV` por F1 (o por accuracy) premia exactamente al
+modelo que no aprendió nada: cualquier configuración que se acerque a
+"predecir siempre enfermo" saca un F1 cercano a 0.83 sin distinguir un
+paciente de otro. Verificado empíricamente ajustando los 5 algoritmos
+exigidos: optimizados por `balanced_accuracy` (la métrica corregida), su F1
+de validación cruzada cae entre 0.62 y 0.72 — **por debajo** del suelo
+nulo — precisamente porque dejan de sobre-predecir la clase mayoritaria
+para también acertar en la clase sana. `balanced_accuracy`, en cambio, sube
+de su propio suelo nulo (0.50, azar) a 0.67–0.72 en los 5 modelos: la
+métrica corregida sí distingue "aprendió algo" de "no aprendió nada";
+la original no.
+
+Consecuencia adicional, específica de este proyecto: un modelo que predice
+"enfermo" casi siempre tiene FNR ≈ 0 en ambos sexos, así que la auditoría
+de equidad de la Fase 9 no habría encontrado ninguna brecha — no porque no
+exista, sino porque un modelo que no distingue a nadie tampoco puede
+discriminar a nadie.
+
+**Decisión:** `metrics.optimize_for` en `params.yaml` pasa de `"f1"` a
+`"balanced_accuracy"` — la media de la sensibilidad (recall) en cada clase,
+con suelo nulo en 0.50 en cualquier split, en vez de un suelo inflado por
+el desbalance de clase. Documentado en
+`docs/adr/0012-metrica-de-optimizacion-balanced-accuracy.md`. `accuracy`,
+precisión, recall y F1 se **siguen reportando** tal como exige T6/T7 del
+enunciado (`tests/test_fase6_modelos.py` los calcula y compara contra este
+mismo suelo) — lo que cambia es el criterio de **selección** de
+hiperparámetros, no lo que se informa.
+
+**Impacto:** ningún cálculo de las Fases 4–5 se modifica — el hallazgo es
+sobre una configuración declarada para una fase que todavía no se había
+ejecutado, no sobre datos ya procesados. Sí cambia el comportamiento de
+`GridSearchCV` en la Fase 6 y en todo lo que la reutilice (Fases 7–9): los
+modelos seleccionados van a tener F1/accuracy más bajos que si se hubiera
+optimizado por F1, y **eso es la corrección funcionando, no una
+regresión** — queda fijado en
+`tests/test_fase6_modelos.py::test_scoring_supera_el_suelo_nulo` para que
+una sesión futura no lo lea como un error.

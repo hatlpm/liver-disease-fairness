@@ -32,8 +32,25 @@ cv:
 metrics:
   average: "binary"
   pos_label: 1
-  optimize_for: "f1"
+  # ADR-0012: la clase positiva (Selector=1, enfermo) es la MAYORITARIA
+  # (71% de train). Con "f1"/pos_label=1, el clasificador que responde
+  # "todos enfermos" saca F1=0.83 sin haber aprendido nada -- ver el suelo
+  # nulo calculado en 06_modelos.ipynb. "balanced_accuracy" no tiene ese
+  # suelo (0.50 = azar en cualquier split) y es la metrica de SELECCION de
+  # hiperparametros; accuracy/precision/recall/F1 se siguen reportando tal
+  # como exige T6/T7 (cambia el criterio de seleccion, no lo que se informa).
+  optimize_for: "balanced_accuracy"
   decision_threshold: 0.5
+
+# Configuracion fija bajo la que se ajustan los hiperparametros de la Fase 6.
+# Si se reajustaran dentro de cada celda del factorial de la Fase 8, el
+# efecto del escalado quedaria confundido con el efecto de volver a ajustar
+# -- T8 pregunta por el efecto del preprocesamiento aislado. Justificacion
+# completa (por que zscore+smote y no otra combinacion) en
+# notebooks/06_modelos.ipynb.
+tuning_baseline:
+  scaler: "zscore"
+  balancing: "smote"
 
 feature_selection:
   enabled: true

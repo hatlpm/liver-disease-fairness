@@ -162,6 +162,15 @@ GRID_COLOR = "#e1e0d9"
 SURFACE = "#fcfcfb"
 
 
+# --- Fase 6: constantes de los estimadores ---
+# No son hiperparámetros de la rejilla (no se buscan por Grid Search), así
+# que no van en params.yaml (PRD §11.1): son un margen de robustez técnica,
+# igual que RANDOM_STATE. 1000 es margen suficiente para que el solver
+# 'saga' de la regresión logística converja incluso con datos sin escalar
+# (con zscore/minmax converge muchísimo antes).
+LOGREG_MAX_ITER = 1000
+
+
 # --- Actividad 2: parámetros del experimento (params.yaml) ---
 def load_params(path: Path = PARAMS_PATH) -> dict:
     """Carga los parámetros del experimento desde ``params.yaml``.
