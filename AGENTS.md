@@ -128,24 +128,35 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 
 | Fase | Contenido | Estado |
 |------|-----------|--------|
-| 4 — Contrato de datos y *split* | T1, T3: exclusiones, reconstrucción de `A/G Ratio`, split estratificado | ⬜ Sin empezar |
+| 4 — Contrato de datos y *split* | T1, T3: deduplicación, reconstrucción de `A/G Ratio`, split estratificado | ⬜ Sin empezar |
 | 5 — Pipeline y balanceo | T1, T2: `imblearn.Pipeline`, SMOTE solo en train | ⬜ Sin empezar |
-| 6 — Algoritmos e hiperparámetros | T4, T5: los 5 algoritmos + Grid/Random Search | ⬜ Sin empezar |
+| 6A — Selección de variables | `[V]` Selección **dentro** del `Pipeline`; decisión sobre `Gender` | ⬜ Sin empezar |
+| 6 — Algoritmos e hiperparámetros | T4, T5: los 5 algoritmos + Grid Search con rejillas de `params.yaml` | ⬜ Sin empezar |
 | 7 — Evaluación | T6, T7: métricas justificadas + tabla comparativa | ⬜ Sin empezar |
 | 8 — Experimento factorial | T8: {MinMax, Z-Score} × {SMOTE, sin SMOTE} × 5 modelos — **vale el 25%** | ⬜ Sin empezar |
 | 9 — Auditoría de equidad | Valor agregado: FNR por sexo vía CV repetida | ⬜ Sin empezar |
 | E2 — Entregables | Informe ≤15 págs + `act2_anexo.ipynb` | ⬜ Sin empezar |
+| P — Producción (MLOps) | `src/` + `tests/` + CI/CD + tablero Streamlit | ⬜ Sin empezar |
 
 **Decisiones ya tomadas por el usuario (2026-08-15), antes de empezar:**
 
 - **Nulos.** Los 4 de `A/G Ratio` se **reconstruyen** con `ALB/(TP−ALB)`
   (4.9× más preciso que la media; error de redondeo declarado). Las 3 filas con
   `DB>TB` se **conservan e imputan dentro del `Pipeline`** — por mediana, con
-  `add_indicator=True`, y con análisis de sensibilidad obligatorio. Detalle en
-  §5 del PRD de la Act 2.
+  `add_indicator=True`, y con análisis de sensibilidad obligatorio. §5 del PRD.
+- 🔴 **Duplicados: se deduplica ANTES del split (583 → 570).** Divergencia
+  deliberada respecto de la Act 1, donde conservarlos era correcto porque no se
+  entrenaba nada. Motivo: con `random_state=42`, **5 de los 13 pares idénticos
+  caen a ambos lados del split** y el modelo memoriza la fila. Nunca es cero en
+  ninguna semilla probada. §5.3 del PRD.
 - **Fase 9 (equidad) se incluye**, aunque el enunciado no la pida.
 - **Sin feature engineering.** Verificado contra el enunciado: ninguna de las 8
-  tareas lo pide. Ver §2.2 del PRD de la Act 2.
+  tareas lo pide. **Sí hay selección de variables** (Fase 6A), que es cosa
+  distinta y va *después* del engineering en el orden canónico. §9 del PRD.
+
+> ⚠️ **Antes de tocar nada en la Act 2, correr `pytest tests/ -v`.** El PRD
+> exige tests por fase precisamente para que una sesión nueva sepa qué está
+> realmente cerrado sin fiarse de la documentación. Protocolo en §0.1 del PRD.
 
 > Actualiza estas tablas al cerrar cada fase. Son lo primero que debe leer un
 > agente nuevo para saber dónde retomar.
