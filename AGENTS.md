@@ -31,11 +31,25 @@ siguiendo CRISP-DM. Especificación completa en
 se resume aquí para evitar que ambos documentos diverjan — léelo antes de
 tocar código.
 
+> ⚠️ **El PRD vive FUERA del repositorio y no está versionado.** Decisión
+> deliberada y vigente (ratificada 2026-08-15) — ver
+> `docs/adr/0005-prd-fuera-del-repositorio.md`. Consecuencias que hay que
+> tener presentes: **(a)** quien clone desde GitHub **no recibe la fuente de
+> verdad** del proyecto; **(b)** su única copia depende de la sincronización
+> de OneDrive, sin historial ni posibilidad de revertir; **(c)** si el PRD
+> cambia, nada lo registra. Un agente que abra este repo sin acceso al
+> directorio padre debe **decirlo explícitamente** en vez de inferir los
+> requisitos desde el código.
+
 ## Convenciones de trabajo (acordadas con el usuario)
 
 - **Gitflow por fase.** Cada fase del PRD vive en su propia rama
   `feature/fase-N-nombre`, creada desde `main`. Al cerrar una fase con el visto
-  bueno del usuario, se mezcla a `main`.
+  bueno del usuario, se mezcla a `main`. **Una vez mezclada, la rama se borra**
+  (local y en el remoto): el historial ya vive en `main`, y dejarlas vivas solo
+  ensucia la vista del repo — la tabla "Estado actual" de este archivo es el
+  registro de qué fase existió, no la lista de ramas. (Añadido 2026-08-15, tras
+  acumular 7 ramas muertas.)
 - **Nunca commitear ni mezclar ramas sin permiso explícito.** El agente
   prepara el *working tree* (staging) y propone el mensaje; el usuario da la
   orden de commitear en cada checkpoint. Esto aplica también a los merges de
@@ -55,11 +69,20 @@ tocar código.
 
 ## Entorno técnico — nota importante
 
-**El `venv/` no viaja por OneDrive** (está en `.gitignore`, como debe ser). En
-cada máquina nueva hay que recrearlo antes de ejecutar cualquier notebook:
+⚠️ **El `venv/` SÍ viaja por OneDrive, y llega roto.** (Corregido 2026-08-15;
+antes este archivo afirmaba lo contrario.) `.gitignore` impide que *git* lo
+rastree, pero **no impide que OneDrive sincronice la carpeta** — son dos
+mecanismos independientes. El resultado es peor que si no viajara: aparece un
+`venv/` de aspecto normal cuyo `pyvenv.cfg` apunta al intérprete de **otra**
+máquina, y cualquier comando falla con
+`did not find executable at 'C:\Users\<otro-usuario>\...'`.
+
+**Primer paso en cada máquina nueva: borrarlo y recrearlo.** No basta con
+crearlo "si no existe" — hay que borrar el que llegó por OneDrive:
 
 ```bash
-py -3.12 -m venv venv
+rm -rf venv
+py -3.13 -m venv venv
 ./venv/Scripts/python.exe -m pip install -r requirements.txt
 ```
 
@@ -90,8 +113,9 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | 2b — EDA clínico | `feature/fase-2-eda-clinico` → mezclada a `main` (2026-07-28) | ✅ Cerrada. Loop C: lectura clínica del EDA, diccionario de datos, 2 problemas de calidad nuevos (Q8 `DB>TB`, Q9 age heaping), Q7 resuelto, y análisis de sensibilidad de umbrales de ALT por sexo. Aprobada por el usuario sin observaciones. |
 | 2c — EDA clustering/PCA | `feature/fase-2c-eda-clustering` → mezclada a `main` (2026-07-28) | ✅ Cerrada. Clustering jerárquico edad × sexo, revisado tras observaciones del usuario: se corrigieron los clusters de 1-4 personas (causa: distancias euclídeas sobre variables crudas con asimetría 10) y una contradicción interna. Exp 1 se reporta en dos variantes (crudo vs `log1p`) como análisis de sensibilidad. Incluye control de sesgo del propio análisis (ALT es 4.ª de 9 en separación). Ver CHANGELOG § 2026-07-28. |
 | 3 — Preprocessing | `feature/fase-3-preprocessing` → mezclada a `main` (2026-07-28) | ✅ Cerrada. T6, T7 y T8 completos: 39 celdas, 0 errores, 13/13 requisitos (9 `[M]` + 4 `[V]`). Loop B registrado. Aprobada por el usuario. |
-| E — Entregables | `feature/fase-e-entregables` | ✅ **Completa.** `act1_anexo.ipynb` (E2, 32 celdas, 0 errores) e `informe_act1` en Markdown, LaTeX y **PDF compilado de 10 páginas exactas**. README de portafolio actualizado. Pendiente de merge a `main`. |
-| Auditoría externa | (sin rama propia; `feature/fase-e-entregables` ya estaba mezclada a `main`, correcciones aplicadas directamente sobre `main`) | ✅ **Aplicada (2026-08-15).** Auditoría metodológica independiente encontró 8 hallazgos; los 8 se corrigieron con decisiones estadísticas/metodológicas aprobadas explícitamente por el usuario. Ver checkpoint más abajo y `docs/CHANGELOG_iteraciones.md` § 2026-08-15. |
+| E — Entregables | `feature/fase-e-entregables` → mezclada a `main` (2026-07-28) | ✅ Cerrada. `act1_anexo.ipynb` (E2, 32 celdas, 0 errores) e `informe_act1` en Markdown, LaTeX y **PDF compilado de 10 páginas exactas**. README de portafolio actualizado. |
+| Auditoría externa | (sin rama propia; `feature/fase-e-entregables` ya estaba mezclada a `main`, correcciones aplicadas directamente sobre `main`) | ✅ **Aplicada (2026-08-15).** Auditoría metodológica independiente encontró 8 hallazgos; los 8 se corrigieron con decisiones estadísticas/metodológicas aprobadas explícitamente por el usuario. Ver checkpoint más abajo y `docs/CHANGELOG_iteraciones.md` § Loop D. |
+| Loop E — revisión de repo | (sin rama propia; aplicado sobre `main`) | ✅ **Aplicado (2026-08-15).** Entorno reproducible reparado, fugas de rutas eliminadas de raíz, 41 cifras publicadas re-verificadas contra recálculo independiente, y **un error numérico real corregido** (límites de intervalo en el chequeo de densidad de ALT del Loop D). Ver `docs/CHANGELOG_iteraciones.md` § Loop E. ⏸️ Deja el PDF desactualizado — ver aviso de LaTeX. |
 
 > Actualiza esta tabla al cerrar cada fase. Es lo primero que debe leer un
 > agente nuevo para saber dónde retomar.
@@ -108,17 +132,35 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | E1 (fuentes) | `reports/informe_act1.md` y `.tex` | Mismo contenido y mismos números |
 | **E2** | `notebooks/act1_anexo.ipynb` | 32 celdas, 0 errores, orden literal T1→T8 |
 
-### Entorno LaTeX (agregado 2026-07-28)
+### Entorno LaTeX (agregado 2026-07-28; ⏸️ pendiente de revisar 2026-08-15)
 
 **MiKTeX 25.12 instalado** vía `winget` en modo usuario, con `AutoInstall=1`
-para que descargue paquetes de CTAN al vuelo. `pdflatex` está en
-`C:\Users\LENOVO\AppData\Local\Programs\MiKTeX\miktex\bin\x64` y **no en el PATH del sistema** — hay que
-añadirlo en cada sesión:
+para que descargue paquetes de CTAN al vuelo. `pdflatex` **no está en el PATH
+del sistema**: hay que añadir su carpeta `miktex\bin\x64` en cada sesión antes
+de compilar.
 
-```bash
-export PATH="$PATH:/c/Users/LENOVO/AppData/Local/Programs/MiKTeX/miktex/bin/x64"
-cd reports && pdflatex -interaction=nonstopmode informe_act1.tex
-```
+> ⏸️ **PENDIENTE — no resuelto a 2026-08-15.** La ruta que estaba escrita aquí
+> (`C:\Users\<otro-usuario>\AppData\Local\Programs\MiKTeX\...`) era de **otra máquina** y
+> no existe en la actual. El usuario confirma que MiKTeX **sí está instalado**
+> en este equipo, pero se decidió **no abordarlo en esta ronda**. Queda por
+> hacer: localizar `pdflatex.exe` en esta máquina y sustituir la ruta por una
+> forma que no dependa del nombre de usuario (p. ej. resolver la carpeta desde
+> `$env:LOCALAPPDATA`). **Hasta entonces, el PDF no se puede recompilar aquí.**
+>
+> 🔴 **CONSECUENCIA ACTIVA: `reports/informe_act1.pdf` está DESACTUALIZADO.**
+> El Loop E (2026-08-15) corrigió dos cifras en `informe_act1.md` y `.tex` que
+> el PDF **todavía muestra con el valor viejo**:
+>
+> | Dónde | PDF (viejo) | Fuentes `.md`/`.tex` (correcto) |
+> |---|---|---|
+> | §10.1, densidad masculina de ALT | `0.0168/U·L` | **`0.0156/U·L`** |
+> | §10.1, exceso de densidad femenina | `~40% mayor` | **`exactamente 50% mayor`** |
+> | §10.4, iteraciones CRISP-DM | `Cuatro` | **`Cinco`** |
+>
+> **El `.md` y el `.tex` son la versión correcta; el PDF no.** Es un cambio de
+> texto corrido, así que no debería alterar la paginación, pero **hay que
+> verificar que sigan siendo 10 páginas exactas** al recompilar. Hasta
+> entonces, **no entregar ni publicar el PDF**.
 
 MiKTeX también trae `pdftoppm`, útil para renderizar el PDF a PNG y revisarlo
 visualmente.

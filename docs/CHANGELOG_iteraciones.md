@@ -339,3 +339,87 @@ sexo, el cluster de severidad) y corrige trazabilidad de fuentes en otros
 dos. Se registra íntegro por transparencia, siguiendo la misma regla de oro
 que el proyecto aplica a sus propios *loops*: todo hallazgo que obliga a
 revisar una fase anterior se documenta con fecha, disparador y decisión.
+
+## 2026-08-15 — Loop E: revisión del repositorio y un error de intervalo
+
+**Disparador:** una revisión del repositorio completo (estado de git,
+reproducibilidad, coherencia entre documentos) encontró que el entorno no era
+ejecutable en una máquina nueva y que varias afirmaciones de la documentación
+no coincidían con el estado real. Al re-ejecutar todo para verificar las
+cifras publicadas, apareció además **un error numérico real** en una de las
+correcciones del Loop D.
+
+### El error de intervalo (lo relevante para el análisis)
+
+El Hallazgo 8 del Loop D añadió un chequeo de **densidad de ALT por unidad de
+ancho** para cuantificar cuánto del exceso femenino era artefacto del ancho de
+la ventana. Ese chequeo contaba la franja como `[ULN_sexo, 40)` — cerrada por
+abajo, abierta por arriba.
+
+**Esos límites no coinciden con la regla de reclasificación que el chequeo
+debe explicar.** La regla es `anormal ⟺ Sgpt > ULN`, luego se reclasifica
+exactamente quien cae en `(ULN_sexo, 40]`. Con los límites viejos:
+
+| | Franja `[ULN, 40)` (vieja) | Franja `(ULN, 40]` (correcta) | Reclasificados según la tabla oficial |
+|---|---|---|---|
+| Mujeres | 70 | 70 | **70** ✅ |
+| Hombres | **74** ❌ | 69 | **69** |
+
+El conteo masculino incluía **12 hombres con ALT exactamente 30** (que *no*
+cambian de categoría) y excluía **7 con ALT exactamente 40** (que *sí*):
+74 − 12 + 7 = 69. En mujeres el error se cancelaba por casualidad (2 casos en
+cada extremo), razón por la cual pasó desapercibido: la cifra femenina, que es
+la que se citaba, era correcta.
+
+**Efecto sobre el resultado:** la densidad masculina pasa de `0.0168` a
+`0.0156` personas por U/L, y el exceso femenino sube de "~40% mayor" a
+**exactamente 50% mayor**. La dirección del hallazgo **no cambia: se
+refuerza**. Se registra igual, porque el error existió y porque el criterio
+del proyecto no es publicar solo lo que conviene.
+
+**Prevención:** la celda incorpora ahora un `assert` que falla si el conteo de
+la franja vuelve a divergir del número de reclasificados de la tabla de
+umbrales. Un chequeo de coherencia que se ejecuta solo, en vez de una nota que
+hay que recordar leer.
+
+### Verificación independiente de todas las cifras
+
+Se recalcularon **41 cifras publicadas** desde `data/raw/` usando `src/`, sin
+leer los notebooks, y se compararon una a una contra lo que afirman el informe
+y el README: estructura (583×11, 441/142, 13 duplicados, 4 nulos), brecha de
+diagnóstico (73.47% / 64.79% / 8.7 pp), Fisher (p = 0.055), las ocho celdas de
+la tabla de umbrales de ALT, los porcentajes entre no-hepáticos (68.0% /
+41.0%), el sesgo de outliers (`Sgot` y `A/G Ratio` en mujeres), el índice de
+Whipple (163.3) y los tres CSV procesados (583×11, 6 nulos cada uno).
+
+**Resultado: 39 de 41 coincidían exactamente. Las 2 que no eran las dos caras
+del error de intervalo descrito arriba.** Corregidas, las 41 coinciden.
+
+### Correcciones de reproducibilidad y documentación
+
+| # | Problema | Corrección |
+|---|---|---|
+| 1 | El `venv/` **sí** viaja por OneDrive (`.gitignore` no lo impide) y llega apuntando al intérprete de otra máquina | Recreado con Python 3.13.3; `AGENTS.md` y `README.md` corregidos — antes afirmaban lo contrario, que era la razón de que nadie borrara el roto |
+| 2 | Rutas locales filtradas en 3 notebooks pese al commit `437aae2` que decía haberlas eliminado | Causa raíz eliminada: `matplotlib.use("Agg")` forzaba un backend no interactivo cuyo aviso imprimía la ruta temporal. El commit anterior había borrado las *salidas* pero no la *causa*, así que reaparecieron al re-ejecutar en el Loop D. Además `03_preprocessing` imprimía la ruta absoluta del equipo: ahora imprime `data/processed/` |
+| 3 | Efecto colateral favorable del punto 2 | Al quitar el backend `Agg`, las figuras **se renderizan dentro de los notebooks** (10 en total). Antes solo existían como PNG sueltos en `reports/figures/` |
+| 4 | `AGENTS.md` se contradecía: la Fase E figuraba como "pendiente de merge" y dos filas más abajo como ya mezclada | Verificado con `git branch --merged`: mezclada. Fila corregida |
+| 5 | El PRD, "fuente de verdad" declarada, vive fuera del repo y sin versionar | Se ratifica dejarlo fuera y se documentan las consecuencias en `docs/adr/0005-prd-fuera-del-repositorio.md` |
+| 6 | El índice de `docs/adr/README.md` no listaba el ADR 0004 | Añadidos 0004 y 0005 |
+| 7 | Tres copias idénticas del dataset (`act1/`, `act2/`, `data/raw/`) | Borradas las dos de fuera del repo; la de `data/raw/` es la canónica y está versionada |
+| 8 | 7 ramas `feature/*` ya mezcladas seguían vivas local y en el remoto | Borradas en ambos sitios |
+| 9 | El README describía el umbral de ALT como "el hallazgo principal", en un tono más seguro que el informe tras el Loop D | Reescrito: ahora abre con la brecha y su `p = 0.055`, y separa explícitamente lo que puede afirmarse de lo que no |
+
+### Qué queda abierto
+
+- ⏸️ **`reports/informe_act1.pdf` está desactualizado.** El `.md` y el `.tex`
+  llevan las cifras corregidas; el PDF no, porque `pdflatex` no está
+  localizable en esta máquina y **se decidió no abordarlo en esta ronda**.
+  Detalle de las diferencias y advertencia de no entregarlo en `AGENTS.md`.
+- ⏸️ **Hallazgo 4 del Loop D** (índice de Whipple aplicado fuera de su dominio
+  censal) sigue sin la confirmación explícita del usuario, tal como lo dejó
+  registrado el propio Loop D.
+
+**Verificación técnica.** Los 5 notebooks se re-ejecutaron *restart & run all*
+con el entorno nuevo — **0 errores**. Ninguna ruta local queda en el
+repositorio. Las 41 cifras publicadas coinciden con el recálculo
+independiente.

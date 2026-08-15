@@ -39,3 +39,5 @@ edita el original.
 | [0001](0001-gitflow-por-fase.md) | Gitflow por fase del PRD, con rama `feature/fase-N-*` desde `main` |
 | [0002](0002-entorno-notebooks-sin-jupyterlab.md) | Entorno de notebooks sin Jupyter Lab completo (límite de rutas largas de Windows) |
 | [0003](0003-sin-holdout-en-fases-0-3.md) | Sin *holdout* de validación en las Fases 0–3; *golden set* se extrae más adelante del raw inmutable |
+| [0004](0004-umbrales-referencia-sexo-especificos.md) | Umbrales de referencia sexo-específicos (Prati/ACG/AASLD) como criterio del proyecto |
+| [0005](0005-prd-fuera-del-repositorio.md) | El PRD permanece fuera del repositorio, sin versionar |
