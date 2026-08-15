@@ -128,8 +128,8 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 
 | Fase | Contenido | Estado |
 |------|-----------|--------|
-| 4 — Contrato de datos y *split* | T1, T3: deduplicación, reconstrucción de `A/G Ratio`, split estratificado | ✅ Cerrada (2026-08-15). `feature/fase-4-split-datos`: `params.yaml`, `src/data.py`, `src/splitting.py`, `notebooks/04_split.ipynb` (37 celdas, 0 errores, emparejado con `.py` vía jupytext), 12 tests verdes (`test_fase4_split.py` + `test_global.py`), ADR 0006 y 0007. Split congelado en `data/processed/split_indices.json` (no versionado, regenerable). Pendiente de confirmación del usuario antes de mezclar. |
-| 5 — Pipeline y balanceo | T1, T2: `imblearn.Pipeline`, SMOTE solo en train | ⬜ Sin empezar |
+| 4 — Contrato de datos y *split* | T1, T3: deduplicación, reconstrucción de `A/G Ratio`, split estratificado | ✅ Cerrada (2026-08-15). `feature/fase-4-split-datos` → mezclada a `main` (fast-forward) y borrada. `params.yaml`, `src/data.py`, `src/splitting.py`, `notebooks/04_split.ipynb` (37 celdas, 0 errores, emparejado con `.py` vía jupytext), 12 tests verdes (`test_fase4_split.py` + `test_global.py`), ADR 0006 y 0007. Split congelado en `data/processed/split_indices.json` (no versionado, regenerable). |
+| 5 — Pipeline y balanceo | T1, T2: `imblearn.Pipeline`, SMOTE solo en train | ✅ Cerrada (2026-08-15). `feature/fase-5-pipeline-balanceo`: `src/pipelines.py` (`build_pipeline`, fábrica de las 4 combinaciones {minmax,zscore}×{con,sin SMOTE}), `notebooks/05_pipeline.ipynb` (35 celdas, 0 errores, emparejado con `.py`), 8 tests nuevos (`test_fase5_pipeline.py`, 24 tests totales en verde), ADR-0011 (indicador de nulos con `MissingIndicator(features="all")`, no `add_indicator=True`, para blindar el ancho de columnas de cara a la Fase 9). SMOTE verificado: train 456→650 (325/131→325/325, 194 sintéticos), test siempre en 114. **F5-R8 — hallazgo central de la fase:** la comparación correcta no es train completo antes/después (24.56%→24.31%, diluida por las 456 filas reales que no cambian) sino minoría de train vs. sintéticos que la replican: **29.77% de mujeres en la minoría → 23.71% en los 194 sintéticos, brecha −6.06 pp**, descompuesta en dos causas independientes — truncamiento `int64` de `imbalanced-learn` hacia `Male=0` (−3.09 pp; 46 mujeres sintéticas reales vs. 52 con redondeo neutro) y geometría de los `k` vecinos de SMOTE, que no preserva la proporción de sexos aunque no hubiera ningún error de tipo de dato (−2.97 pp). SMOTE subrepresenta mujeres entre los sintéticos por mecánica propia, no por una decisión explícita — fijado en `test_smote_subrepresenta_mujeres_en_sinteticos` y anotado para que la Fase 9 lo retome al comparar la brecha de FNR con/sin SMOTE (F9-R4). `pyproject.toml` añade `ignore = ["RUF001", "RUF002"]` (ruido de puntuación en español); baseline de deuda heredada recalculado de 35 a 24 (`src/utils.py` bajó de 11 a 1). Pendiente de confirmación del usuario antes de mezclar. |
 | 6A — Selección de variables | `[V]` Selección **dentro** del `Pipeline`; decisión sobre `Gender` | ⬜ Sin empezar |
 | 6 — Algoritmos e hiperparámetros | T4, T5: los 5 algoritmos + Grid Search con rejillas de `params.yaml` | ⬜ Sin empezar |
 | 7 — Evaluación | T6, T7: métricas justificadas + tabla comparativa | ⬜ Sin empezar |
@@ -138,27 +138,33 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | E2 — Entregables | Informe ≤15 págs + `act2_anexo.ipynb` | ⬜ Sin empezar |
 | P — Producción (MLOps) | `src/` + `tests/` + CI/CD + tablero Streamlit | ⬜ Sin empezar |
 
-### ⚠️ Deuda técnica conocida — `ruff check .` (registrada 2026-08-15, Fase 4)
+### ⚠️ Deuda técnica conocida — `ruff check .` (registrada 2026-08-15, Fase 4; actualizada Fase 5)
 
 La Fase 4 configuró `ruff` en `pyproject.toml`
-(`extend-select = ["I", "B", "RUF"]`). Con esa configuración, `ruff check .`
-da **35 errores preexistentes**, ninguno introducido en la Fase 4 (el código
-nuevo de esa fase está limpio) — **no se tocan hasta que se monte CI** (Fase
-P), porque corregirlos en los notebooks obligaría a re-ejecutarlos y
-volver a verificar cifras ya entregadas:
+(`extend-select = ["I", "B", "RUF"]`). La Fase 5 añadió
+`ignore = ["RUF001", "RUF002"]` (esas dos reglas marcaban la raya larga "–"
+y otro puntuación típica del español en strings/docstrings como "carácter
+ambiguo" — ruido, no señal, en un proyecto escrito en español; `RUF003`,
+la misma regla pero para comentarios `#`, se dejó activa a propósito). Con
+la configuración vigente, `ruff check .` da **24 errores preexistentes**,
+ninguno introducido en la Fase 4 ni en la Fase 5 (el código nuevo de ambas
+está limpio) — **no se tocan hasta que se monte CI** (Fase P), porque
+corregirlos en los notebooks obligaría a re-ejecutarlos y volver a
+verificar cifras ya entregadas:
 
 | Archivo | Errores | Reglas típicas |
 |---|---|---|
-| `src/utils.py` | 11 | `RUF002`/`RUF003` (guiones/× ambiguos en unicode dentro de docstrings y comentarios), `B905` (`zip()` sin `strict=`) |
-| `notebooks/03_preprocessing.ipynb` | 8 | mixto |
+| `notebooks/03_preprocessing.ipynb` | 7 | mixto |
 | `notebooks/02_eda.ipynb` | 6 | mixto (incluye `F401` import sin usar) |
 | `notebooks/act1_anexo.ipynb` | 5 | mixto |
 | `notebooks/02c_eda_clustering.ipynb` | 5 | mixto (incluye `I001` imports desordenados) |
+| `src/utils.py` | 1 | `B905` (`zip()` sin `strict=`) |
 
-`src/utils.py` no es un notebook — su deuda solo se hizo visible al activar
-`B`/`RUF` (antes de la Fase 4 no había `pyproject.toml` con reglas
-extendidas). Verificar el conteo vigente con `ruff check . --statistics`
-antes de asumir que sigue en 35.
+`src/utils.py` bajó de 11 a 1 con el `ignore` de la Fase 5 (casi toda su
+deuda era `RUF002` en docstrings). No es un notebook — su deuda solo se hizo
+visible al activar `B`/`RUF` en la Fase 4 (antes no había `pyproject.toml`
+con reglas extendidas). Verificar el conteo vigente con
+`ruff check . --statistics` antes de asumir que sigue en 24.
 
 **Decisiones ya tomadas por el usuario (2026-08-15), antes de empezar:**
 

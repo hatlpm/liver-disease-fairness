@@ -12,6 +12,7 @@ defusedxml==0.7.1
 executing==2.2.1
 fastjsonschema==2.22.0
 fonttools==4.63.0
+imbalanced-learn==0.14.2
 iniconfig==2.3.0
 ipykernel==7.3.0
 ipython==9.15.0
@@ -69,6 +70,7 @@ scipy==1.18.0
 seaborn==0.13.2
 Send2Trash==2.1.0
 six==1.17.0
+sklearn-compat==0.1.6
 soupsieve==2.9.1
 stack-data==0.6.3
 threadpoolctl==3.6.0

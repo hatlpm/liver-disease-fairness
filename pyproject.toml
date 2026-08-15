@@ -7,6 +7,11 @@ target-version = "py313"
 
 [tool.ruff.lint]
 extend-select = ["I", "B", "RUF"]
+# RUF001/RUF002: marcan la raya larga "–" (y otros unicode típicos del
+# español) en strings/docstrings como "carácter ambiguo". En este proyecto,
+# escrito en español con guiones largos y viñetas "·", es ruido, no señal.
+# RUF003 (mismo aviso pero en comentarios #) queda activo a propósito.
+ignore = ["RUF001", "RUF002"]
 
 [tool.ruff.lint.per-file-ignores]
 # Los .py emparejados con jupytext conservan las expresiones sueltas
