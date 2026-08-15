@@ -411,10 +411,23 @@ del error de intervalo descrito arriba.** Corregidas, las 41 coinciden.
 
 ### Qué queda abierto
 
-- ⏸️ **`reports/informe_act1.pdf` está desactualizado.** El `.md` y el `.tex`
-  llevan las cifras corregidas; el PDF no, porque `pdflatex` no está
-  localizable en esta máquina y **se decidió no abordarlo en esta ronda**.
-  Detalle de las diferencias y advertencia de no entregarlo en `AGENTS.md`.
+- ✅ **`reports/informe_act1.pdf` recompilado** (resuelto el mismo día, en una
+  segunda ronda). `pdflatex` **sí estaba en el PATH** de la máquina; la razón de
+  que pareciera ausente es que `AGENTS.md` traía la ruta absoluta de otra
+  máquina en vez de resolverla desde el entorno. Verificado: **10 páginas
+  exactas, 0 errores**, y las tres cifras corregidas presentes en el PDF
+  (`0.0156`, `exactamente un 50 % mayor`, `Cinco iteraciones`), sin rastro de
+  las viejas.
+
+  > 🔴 **Trampa descubierta y registrada.** La primera compilación se colgó
+  > indefinidamente: faltaba `caption.sty`, MiKTeX intentó descargarlo de un
+  > mirror de CTAN que cerró la conexión, y `pdflatex` quedó esperando con el
+  > socket en `CloseWait` — **sin consumir CPU y sin escribir al log**, de modo
+  > que parecía estar trabajando. La señal que lo delató fue el tiempo de CPU
+  > congelado. Desde ahora se compila con `--disable-installer`, que falla al
+  > instante y nombra el `.sty` que falta en vez de colgarse. Documentado en
+  > `AGENTS.md`.
+
 - ⏸️ **Hallazgo 4 del Loop D** (índice de Whipple aplicado fuera de su dominio
   censal) sigue sin la confirmación explícita del usuario, tal como lo dejó
   registrado el propio Loop D.

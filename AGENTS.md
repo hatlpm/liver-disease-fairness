@@ -115,7 +115,7 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | 3 — Preprocessing | `feature/fase-3-preprocessing` → mezclada a `main` (2026-07-28) | ✅ Cerrada. T6, T7 y T8 completos: 39 celdas, 0 errores, 13/13 requisitos (9 `[M]` + 4 `[V]`). Loop B registrado. Aprobada por el usuario. |
 | E — Entregables | `feature/fase-e-entregables` → mezclada a `main` (2026-07-28) | ✅ Cerrada. `act1_anexo.ipynb` (E2, 32 celdas, 0 errores) e `informe_act1` en Markdown, LaTeX y **PDF compilado de 10 páginas exactas**. README de portafolio actualizado. |
 | Auditoría externa | (sin rama propia; `feature/fase-e-entregables` ya estaba mezclada a `main`, correcciones aplicadas directamente sobre `main`) | ✅ **Aplicada (2026-08-15).** Auditoría metodológica independiente encontró 8 hallazgos; los 8 se corrigieron con decisiones estadísticas/metodológicas aprobadas explícitamente por el usuario. Ver checkpoint más abajo y `docs/CHANGELOG_iteraciones.md` § Loop D. |
-| Loop E — revisión de repo | (sin rama propia; aplicado sobre `main`) | ✅ **Aplicado (2026-08-15).** Entorno reproducible reparado, fugas de rutas eliminadas de raíz, 41 cifras publicadas re-verificadas contra recálculo independiente, y **un error numérico real corregido** (límites de intervalo en el chequeo de densidad de ALT del Loop D). Ver `docs/CHANGELOG_iteraciones.md` § Loop E. ⏸️ Deja el PDF desactualizado — ver aviso de LaTeX. |
+| Loop E — revisión de repo | (sin rama propia; aplicado sobre `main`) | ✅ **Aplicado (2026-08-15).** Entorno reproducible reparado, fugas de rutas eliminadas de raíz, 41 cifras publicadas re-verificadas contra recálculo independiente, y **un error numérico real corregido** (límites de intervalo en el chequeo de densidad de ALT del Loop D). Entorno LaTeX resuelto y **PDF recompilado con las cifras corregidas: 10 páginas exactas, 0 errores.** Ver `docs/CHANGELOG_iteraciones.md` § Loop E. |
 
 > Actualiza esta tabla al cerrar cada fase. Es lo primero que debe leer un
 > agente nuevo para saber dónde retomar.
@@ -132,38 +132,49 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | E1 (fuentes) | `reports/informe_act1.md` y `.tex` | Mismo contenido y mismos números |
 | **E2** | `notebooks/act1_anexo.ipynb` | 32 celdas, 0 errores, orden literal T1→T8 |
 
-### Entorno LaTeX (agregado 2026-07-28; ⏸️ pendiente de revisar 2026-08-15)
+### Entorno LaTeX (agregado 2026-07-28; ✅ resuelto y verificado 2026-08-15)
 
-**MiKTeX 25.12 instalado** vía `winget` en modo usuario, con `AutoInstall=1`
-para que descargue paquetes de CTAN al vuelo. `pdflatex` **no está en el PATH
-del sistema**: hay que añadir su carpeta `miktex\bin\x64` en cada sesión antes
-de compilar.
+**MiKTeX instalado en modo usuario**, con `AutoInstall=1` para descargar
+paquetes de CTAN al vuelo. **No escribas la ruta a mano** — la versión anterior
+de este archivo tenía la ruta de otra máquina, con el nombre de usuario
+incrustado, y por eso pareció durante un tiempo que MiKTeX no estaba instalado.
+Resuélvela siempre desde el entorno:
 
-> ⏸️ **PENDIENTE — no resuelto a 2026-08-15.** La ruta que estaba escrita aquí
-> (`C:\Users\<otro-usuario>\AppData\Local\Programs\MiKTeX\...`) era de **otra máquina** y
-> no existe en la actual. El usuario confirma que MiKTeX **sí está instalado**
-> en este equipo, pero se decidió **no abordarlo en esta ronda**. Queda por
-> hacer: localizar `pdflatex.exe` en esta máquina y sustituir la ruta por una
-> forma que no dependa del nombre de usuario (p. ej. resolver la carpeta desde
-> `$env:LOCALAPPDATA`). **Hasta entonces, el PDF no se puede recompilar aquí.**
->
-> 🔴 **CONSECUENCIA ACTIVA: `reports/informe_act1.pdf` está DESACTUALIZADO.**
-> El Loop E (2026-08-15) corrigió dos cifras en `informe_act1.md` y `.tex` que
-> el PDF **todavía muestra con el valor viejo**:
->
-> | Dónde | PDF (viejo) | Fuentes `.md`/`.tex` (correcto) |
-> |---|---|---|
-> | §10.1, densidad masculina de ALT | `0.0168/U·L` | **`0.0156/U·L`** |
-> | §10.1, exceso de densidad femenina | `~40% mayor` | **`exactamente 50% mayor`** |
-> | §10.4, iteraciones CRISP-DM | `Cuatro` | **`Cinco`** |
->
-> **El `.md` y el `.tex` son la versión correcta; el PDF no.** Es un cambio de
-> texto corrido, así que no debería alterar la paginación, pero **hay que
-> verificar que sigan siendo 10 páginas exactas** al recompilar. Hasta
-> entonces, **no entregar ni publicar el PDF**.
+```powershell
+# pdflatex ya suele estar en el PATH del usuario; comprobar primero:
+(Get-Command pdflatex -ErrorAction SilentlyContinue).Source
+# si no aparece, la carpeta es:
+"$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64"
+```
 
-MiKTeX también trae `pdftoppm`, útil para renderizar el PDF a PNG y revisarlo
-visualmente.
+Compilación (dos pasadas, por las referencias cruzadas):
+
+```powershell
+cd reports
+pdflatex -interaction=nonstopmode --disable-installer informe_act1.tex
+pdflatex -interaction=nonstopmode --disable-installer informe_act1.tex
+```
+
+> 🔴 **Usa siempre `--disable-installer` en sesiones automatizadas.** Sin esa
+> bandera, si falta un paquete MiKTeX intenta descargarlo de un mirror de CTAN;
+> si el mirror falla, `pdflatex` **se queda colgado para siempre** con la
+> conexión en `CloseWait`, sin consumir CPU y sin escribir nada al log — parece
+> que trabaja, pero está muerto. Pasó el 2026-08-15 y costó un rato
+> diagnosticarlo. Con la bandera puesta, falla al instante y **dice qué archivo
+> `.sty` falta**, que es lo que quieres saber. Si falta alguno, instálalo
+> aparte (`mpm --install=<paquete>`) y vuelve a compilar.
+
+**Verificación obligatoria tras cada compilación** — el informe debe tener
+**10 páginas exactas**:
+
+```powershell
+Select-String informe_act1.log -Pattern 'Output written.*pages'
+```
+
+Los auxiliares (`.aux`, `.log`, `.out`, `.toc`) están en `.gitignore`; el
+`.tex` y el `.pdf` sí se versionan. MiKTeX también trae `pdftotext` (para
+verificar que una cifra corregida llegó al PDF) y `pdftoppm` (para renderizar
+a PNG y revisarlo visualmente).
 
 > ⚠️ **Lección registrada:** la estimación de páginas desde el Markdown (11.3)
 > resultó **muy optimista** — el PDF real salió en **14 páginas**. No estimar
