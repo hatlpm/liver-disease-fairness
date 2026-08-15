@@ -25,11 +25,18 @@ máquina — debe **reconstruir el contexto operativo primero**, en este orden:
 ## Qué es este proyecto
 
 Predicción de enfermedad hepática (ILPD) con auditoría de *fairness* por sexo,
-siguiendo CRISP-DM. Especificación completa en
-`../PRD_liver_disease_fases_0-3.md` (un nivel arriba de este repo, en
-`MIU data science/`). Ese PRD es la fuente de verdad para las Fases 0–3; no
-se resume aquí para evitar que ambos documentos diverjan — léelo antes de
-tocar código.
+siguiendo CRISP-DM. Hay **dos PRD**, ambos un nivel arriba de este repo, en
+`MIU data science/`. Son la fuente de verdad; no se resumen aquí para evitar
+que los documentos diverjan — **lee el que corresponda antes de tocar código**:
+
+| PRD | Cubre | Estado |
+|---|---|---|
+| `../PRD_liver_disease_fases_0-3.md` | **Actividad 1** — Fases 0–3 (EDA y preparación), tareas T1–T8 del enunciado 1 | ✅ Completada y entregada |
+| `../PRD_liver_disease_act2_fases_4-9.md` | **Actividad 2** — Fases 4–9 (modelado y evaluación), tareas T1–T8 del enunciado 2 | 📋 Escrito 2026-08-15, **sin empezar** |
+
+⚠️ **No confundir la numeración de tareas.** Cada actividad tiene su propio
+T1–T8. "T6" significa cosas distintas en cada PRD (imputación en la Act 1,
+elección de métricas en la Act 2). Citar siempre la actividad.
 
 > ⚠️ **El PRD vive FUERA del repositorio y no está versionado.** Decisión
 > deliberada y vigente (ratificada 2026-08-15) — ver
@@ -117,7 +124,30 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | Auditoría externa | (sin rama propia; `feature/fase-e-entregables` ya estaba mezclada a `main`, correcciones aplicadas directamente sobre `main`) | ✅ **Aplicada (2026-08-15).** Auditoría metodológica independiente encontró 8 hallazgos; los 8 se corrigieron con decisiones estadísticas/metodológicas aprobadas explícitamente por el usuario. Ver checkpoint más abajo y `docs/CHANGELOG_iteraciones.md` § Loop D. |
 | Loop E — revisión de repo | (sin rama propia; aplicado sobre `main`) | ✅ **Aplicado (2026-08-15).** Entorno reproducible reparado, fugas de rutas eliminadas de raíz, 41 cifras publicadas re-verificadas contra recálculo independiente, y **un error numérico real corregido** (límites de intervalo en el chequeo de densidad de ALT del Loop D). Entorno LaTeX resuelto y **PDF recompilado con las cifras corregidas: 10 páginas exactas, 0 errores.** Ver `docs/CHANGELOG_iteraciones.md` § Loop E. |
 
-> Actualiza esta tabla al cerrar cada fase. Es lo primero que debe leer un
+### Actividad 2 — Fases 4–9 (modelado y evaluación)
+
+| Fase | Contenido | Estado |
+|------|-----------|--------|
+| 4 — Contrato de datos y *split* | T1, T3: exclusiones, reconstrucción de `A/G Ratio`, split estratificado | ⬜ Sin empezar |
+| 5 — Pipeline y balanceo | T1, T2: `imblearn.Pipeline`, SMOTE solo en train | ⬜ Sin empezar |
+| 6 — Algoritmos e hiperparámetros | T4, T5: los 5 algoritmos + Grid/Random Search | ⬜ Sin empezar |
+| 7 — Evaluación | T6, T7: métricas justificadas + tabla comparativa | ⬜ Sin empezar |
+| 8 — Experimento factorial | T8: {MinMax, Z-Score} × {SMOTE, sin SMOTE} × 5 modelos — **vale el 25%** | ⬜ Sin empezar |
+| 9 — Auditoría de equidad | Valor agregado: FNR por sexo vía CV repetida | ⬜ Sin empezar |
+| E2 — Entregables | Informe ≤15 págs + `act2_anexo.ipynb` | ⬜ Sin empezar |
+
+**Decisiones ya tomadas por el usuario (2026-08-15), antes de empezar:**
+
+- **Nulos.** Los 4 de `A/G Ratio` se **reconstruyen** con `ALB/(TP−ALB)`
+  (4.9× más preciso que la media; error de redondeo declarado). Las 3 filas con
+  `DB>TB` se **conservan e imputan dentro del `Pipeline`** — por mediana, con
+  `add_indicator=True`, y con análisis de sensibilidad obligatorio. Detalle en
+  §5 del PRD de la Act 2.
+- **Fase 9 (equidad) se incluye**, aunque el enunciado no la pida.
+- **Sin feature engineering.** Verificado contra el enunciado: ninguna de las 8
+  tareas lo pide. Ver §2.2 del PRD de la Act 2.
+
+> Actualiza estas tablas al cerrar cada fase. Son lo primero que debe leer un
 > agente nuevo para saber dónde retomar.
 
 ## 🔖 Checkpoint — Fase E completa, proyecto entregable (2026-07-28)
