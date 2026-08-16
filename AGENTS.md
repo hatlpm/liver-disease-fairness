@@ -76,25 +76,30 @@ elección de métricas en la Act 2). Citar siempre la actividad.
 
 ## Entorno técnico — nota importante
 
-⚠️ **El `venv/` SÍ viaja por OneDrive, y llega roto.** (Corregido 2026-08-15;
-antes este archivo afirmaba lo contrario.) `.gitignore` impide que *git* lo
-rastree, pero **no impide que OneDrive sincronice la carpeta** — son dos
-mecanismos independientes. El resultado es peor que si no viajara: aparece un
-`venv/` de aspecto normal cuyo `pyvenv.cfg` apunta al intérprete de **otra**
-máquina, y cualquier comando falla con
-`did not find executable at 'C:\Users\<otro-usuario>\...'`.
+🔴 **El `venv/` se crea SIEMPRE fuera de OneDrive — regla estructural, no un
+paso de troubleshooting.** (Corregido 2026-08-16, ver ADR-0013. Hasta esa
+fecha este archivo recomendaba `./venv` dentro del repo y documentaba
+"borrar y recrear" como si fuera un problema puntual de máquina nueva; no lo
+es — es **continuo** mientras el venv viva en una carpeta que dos máquinas
+sincronizan y reinstalan.)
 
-**Primer paso en cada máquina nueva: borrarlo y recrearlo.** No basta con
-crearlo "si no existe" — hay que borrar el que llegó por OneDrive:
-
-```bash
-rm -rf venv
-py -3.13 -m venv venv
-./venv/Scripts/python.exe -m pip install -r requirements.txt
+```powershell
+py -3.13 -m venv "$env:LOCALAPPDATA\venvs\liver-disease-fairness"
+& "$env:LOCALAPPDATA\venvs\liver-disease-fairness\Scripts\python.exe" -m pip install -r requirements.txt
 ```
 
-Verificación rápida de que quedó bien: `load_raw_data()` debe devolver un
-DataFrame de **583 × 11** (DoD de la Fase 0).
+`$env:LOCALAPPDATA` está fuera de OneDrive y es propio de cada máquina — no
+introduce una ruta absoluta fija en la documentación ni en el código (nunca
+escribir `C:\Users\<usuario>\...\venvs\...` literal en ningún archivo
+versionado; `test_sin_rutas_absolutas` lo verificaría si alguien lo hiciera
+en código, pero en Markdown depende de la disciplina de quien edita). A
+partir de aquí, todo comando Python de la sesión usa ese intérprete —
+nunca `./venv/Scripts/python.exe` a secas.
+
+Verificación rápida de que quedó bien: `import pandas` no debe lanzar
+`AttributeError: module 'pyarrow' has no attribute '__version__'`
+(ver el hallazgo de abajo) y `load_raw_data()` debe devolver un DataFrame de
+**583 × 11** (DoD de la Fase 0).
 
 **Compatibilidad de versión de Python (verificado 2026-07-28):** el entorno
 se probó con **3.12 y 3.13**, ambos instalan `requirements.txt` sin
@@ -108,13 +113,39 @@ no hace falta forzar la versión exacta.
 > este `requirements.txt`. Sin la bandera, obtienes un entorno 3.14 con
 > aspecto correcto y sin aviso alguno. (Añadido 2026-08-15.)
 
-> ⚠️ **Borrar el `venv/` aquí lo borra también en la otra máquina.** Como la
-> carpeta viaja por OneDrive, no hay un venv por máquina: hay **uno solo,
-> compartido**, y cada máquina lo rompe para la otra al recrearlo. El ciclo
-> "borrar y recrear" de arriba funciona, pero se repetirá indefinidamente y
-> sincroniza ~500 MB inútiles cada vez. La solución de fondo — pendiente de
-> decidir — es sacar el venv de OneDrive (crearlo en `C:\venvs\...`) o
-> excluir la carpeta de la sincronización. (Añadido 2026-08-15.)
+### Historial del problema — por qué el venv no puede vivir en OneDrive (cerrado 2026-08-16)
+
+Tres síntomas distintos, la misma causa raíz (`venv/` dentro de la carpeta
+sincronizada, escrito por dos máquinas):
+
+1. **`pyvenv.cfg` apunta al intérprete de otra máquina** (hallazgo original,
+   2026-08-15): `did not find executable at 'C:\Users\<otro-usuario>\...'`.
+2. **El venv se borra en ambas máquinas a la vez** (2026-08-15): no hay un
+   venv por máquina, hay uno solo compartido — recrearlo aquí lo rompe allá.
+3. **Un paquete llega con la carpeta creada pero vacía** (2026-08-16, el más
+   sutil): tras instalar `streamlit` en una máquina, aquí llegó
+   `venv/Lib/site-packages/pyarrow/` con subcarpetas (`include`, `parquet`,
+   `tests`, …) pero **cero archivos** — OneDrive sincronizó la estructura de
+   directorios sin bajar el contenido todavía. Python no lo detecta como
+   error: un directorio sin `__init__.py` ni contenido es un *namespace
+   package* válido, así que `import pyarrow` **no falla**. El fallo aparece
+   un paso más adelante y de forma confusa: `pandas.compat.pyarrow` hace
+   `Version(pa.__version__)`, revienta con
+   `AttributeError: module 'pyarrow' has no attribute '__version__'`, y ese
+   código solo atrapa `ImportError` — así que ni siquiera es el error
+   "pyarrow no está instalado" que cabría esperar. Si pyarrow no existiera en
+   absoluto, pandas funcionaría igual (es una dependencia opcional): el
+   problema es específicamente que está *presente pero vacío*.
+
+Los tres son consecuencia del mismo hecho: OneDrive sincroniza `venv/`
+aunque `.gitignore` impida que *git* lo rastree — son dos mecanismos
+independientes, y evitar uno no evita el otro. **La solución de fondo,
+aplicada el 2026-08-16 (ADR-0013): sacar el `venv/` de OneDrive por completo**,
+no seguir parcheando cada síntoma nuevo. `streamlit`/`pyarrow` se
+reincorporarán a `requirements.txt` en la Fase P (producción) — hasta
+entonces no son dependencias del proyecto y no deben fijarse "por
+adelantado" (fue precisamente instalarlas antes de tiempo lo que disparó el
+síntoma 3).
 
 `jupyter` (el metapaquete completo, con Jupyter Lab) **no se pudo instalar**
 por el límite de rutas largas de Windows, agravado por la ruta anidada de

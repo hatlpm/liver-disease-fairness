@@ -105,22 +105,21 @@ liver-disease-fairness/
 
 ## Cómo reproducir
 
-```bash
-rm -rf venv                    # ver aviso abajo
-py -3.13 -m venv venv          # 3.12 y 3.13 verificados; escribe la versión
-./venv/Scripts/python.exe -m pip install -r requirements.txt
+```powershell
+py -3.13 -m venv "$env:LOCALAPPDATA\venvs\liver-disease-fairness"     # ver aviso abajo
+& "$env:LOCALAPPDATA\venvs\liver-disease-fairness\Scripts\python.exe" -m pip install -r requirements.txt
 ```
 
-> ⚠️ **Escribe `py -3.13`, no `py -m venv`.** El intérprete por defecto de `py` es el más nuevo instalado, que puede ser una versión no verificada contra este `requirements.txt` (en una de las máquinas del proyecto, 3.14). Sin la bandera obtienes un entorno de aspecto correcto y sin ningún aviso.
+> 🔴 **El `venv/` se crea SIEMPRE fuera de OneDrive, nunca como `./venv` dentro del repo.** `.gitignore` impide que *git* lo rastree, pero no impide que el sincronizador copie la carpeta entre las dos máquinas del proyecto — eso produjo, en distintos momentos, un intérprete apuntando a la máquina equivocada, un venv que se borraba en ambas máquinas a la vez, y un paquete (`pyarrow`) sincronizado como carpeta vacía que rompía `import pandas` con un error confuso. `%LOCALAPPDATA%` es propio de cada máquina y está fuera del árbol sincronizado. Detalle completo en [`docs/adr/0013`](docs/adr/0013-venv-fuera-de-onedrive.md).
 
-> ⚠️ **Si el proyecto llegó por una carpeta sincronizada (OneDrive, Drive), borra el `venv/` antes de recrearlo.** `.gitignore` impide que git lo rastree, pero no impide que el sincronizador copie la carpeta: llega un `venv/` de aspecto normal cuyo intérprete apunta a la máquina de origen, y todo falla con `did not find executable at 'C:\Users\<otro-usuario>\...'`.
+> ⚠️ **Escribe `py -3.13`, no `py -m venv`.** El intérprete por defecto de `py` es el más nuevo instalado, que puede ser una versión no verificada contra este `requirements.txt` (en una de las máquinas del proyecto, 3.14). Sin la bandera obtienes un entorno de aspecto correcto y sin ningún aviso.
 
 Verificación rápida de que quedó bien: `load_raw_data()` debe devolver un DataFrame de **583 × 11**.
 
 Para ejecutar un notebook de principio a fin y verificar que no falla:
 
-```bash
-./venv/Scripts/python.exe -m nbconvert --to notebook --execute notebooks/act1_anexo.ipynb
+```powershell
+& "$env:LOCALAPPDATA\venvs\liver-disease-fairness\Scripts\python.exe" -m nbconvert --to notebook --execute notebooks/act1_anexo.ipynb
 ```
 
 > El entorno usa `ipykernel` + `nbconvert` en lugar del metapaquete `jupyter`, que no se puede instalar por el límite de rutas largas de Windows agravado por la ruta de OneDrive. Ver `docs/adr/0002-entorno-notebooks-sin-jupyterlab.md`.
@@ -129,8 +128,8 @@ Los cinco notebooks de la Actividad 1 pasan *restart & run all* sin errores, sin
 
 La otra mitad de la verificación son los tests, que existen precisamente para que una sesión nueva sepa qué está realmente cerrado sin fiarse de la documentación:
 
-```bash
-./venv/Scripts/python.exe -m pytest tests/ -v
+```powershell
+& "$env:LOCALAPPDATA\venvs\liver-disease-fairness\Scripts\python.exe" -m pytest tests/ -v
 ```
 
 ## Rigor metodológico
