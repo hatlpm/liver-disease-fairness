@@ -48,3 +48,4 @@ edita el original.
 | [0013](0013-venv-fuera-de-onedrive.md) | El `venv/` se crea siempre fuera de OneDrive, en `%LOCALAPPDATA%\venvs\<repo>` |
 | [0014](0014-umbral-de-decision-oficial-vs-punto-de-cribado.md) | La tabla de T7 reporta a umbral 0.5; el punto de cribado explorado (0.30) no la reemplaza en silencio |
 | [0015](0015-hiperparametros-congelados-en-el-factorial.md) | Hiperparámetros de la Fase 6 congelados (vía `set_params`) en las 20 celdas del factorial de la Fase 8, nunca reajustados por celda |
+| [0016](0016-selector-blindado-fase-9.md) | Selector de variables blindado en la Fase 9 (columnas del indicador TB/DB excluidas de `SelectKBest`), local a `src/fairness.py`, sin modificar `build_pipeline` |

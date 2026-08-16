@@ -572,3 +572,41 @@ cualquier fase futura que compare escalados con SMOTE de por medio: la
 invariancia teórica de un estimador no es transferible sin más al pipeline
 completo si alguno de los pasos anteriores (remuestreo, en este caso) es
 sensible a la escala.
+
+---
+
+## 2026-08-16 — Loop H (no aplicado): el indicador constante de la Fase 6 se resolvió sin tocar ninguna fase anterior
+
+**Disparador:** la Fase 6 dejó explícitamente traspasado a la Fase 9 un
+riesgo medido pero no resuelto (`AGENTS.md`, "Riesgo conocido para la
+Fase 9"): en 1 de los 50 pliegues de `RepeatedStratifiedKFold(5,
+n_repeats=10)` sobre train, el indicador de nulos TB/DB queda constante y
+`SelectKBest(f_classif)` lo descarta con un score `NaN`, en silencio. El
+propio traspaso de la Fase 6 ya presentaba dos salidas válidas y dejaba la
+elección a la Fase 9.
+
+**Se documenta aquí, y explícitamente como "no aplicado", porque el
+formato de este archivo es para hallazgos que fuerzan revisar una fase
+YA CERRADA -- y este no es ese caso.** La Fase 6 no dejó una conclusión
+errónea que la Fase 9 tuviera que corregir: dejó una decisión
+deliberadamente pendiente, y la Fase 9 la resuelve dentro de su propio
+alcance. No hay "loop" hacia atrás porque no hay nada que reabrir en
+`06_modelos.ipynb`, `07_evaluacion.ipynb` ni `08_factorial.ipynb`.
+
+**Resolución (Fase 9, [ADR-0016](adr/0016-selector-blindado-fase-9.md)):**
+`src/fairness.py::build_shielded_selector` excluye las columnas del
+indicador de la competencia de `SelectKBest` por completo, pasado como el
+mismo argumento `selector=` que ya acepta `build_pipeline` -- sin tocar
+`src/pipelines.py`. Verificado: los 46 tests que existían antes de la
+Fase 9 siguen pasando sin modificación (`pytest tests/test_fase4_split.py
+tests/test_fase5_pipeline.py tests/test_fase6_modelos.py
+tests/test_fase6a_seleccion.py tests/test_fase7_evaluacion.py
+tests/test_fase8_factorial.py tests/test_global.py -q` → 46 passed,
+idéntico a antes de que existiera `src/fairness.py`), y ningún número ya
+reportado de las Fases 6-8 (`balanced_accuracy` = 0.7234 del ganador,
+entre otros) se recalculó ni cambió.
+
+**Por qué se registra igual:** para que una sesión futura que vea
+`src/fairness.py::build_shielded_selector` y se pregunte "¿por qué no está
+esto en `src/pipelines.py`, si resuelve un problema real?" encuentre la
+respuesta aquí sin tener que releer el ADR completo.

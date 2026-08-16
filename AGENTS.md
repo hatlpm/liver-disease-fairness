@@ -32,7 +32,7 @@ que los documentos diverjan — **lee el que corresponda antes de tocar código*
 | PRD | Cubre | Estado |
 |---|---|---|
 | `../PRD_liver_disease_fases_0-3.md` | **Actividad 1** — Fases 0–3 (EDA y preparación), tareas T1–T8 del enunciado 1 | ✅ Completada y entregada |
-| `../PRD_liver_disease_act2_fases_4-9.md` | **Actividad 2** — Fases 4–9 (modelado y evaluación), tareas T1–T8 del enunciado 2 | 🚧 **En curso** — Fases 4, 5, 6A y 6 cerradas y mezcladas a `main`; la siguiente es la Fase 7 |
+| `../PRD_liver_disease_act2_fases_4-9.md` | **Actividad 2** — Fases 4–9 (modelado y evaluación), tareas T1–T8 del enunciado 2 | 🚧 **En curso** — Fases 4–9 (todas las fases analíticas) cerradas; Fase 9 pendiente de confirmación del usuario antes de mezclar a `main`. Solo quedan E2 (informe) y P (producción) |
 
 ⚠️ **No confundir la numeración de tareas.** Cada actividad tiene su propio
 T1–T8. "T6" significa cosas distintas en cada PRD (imputación en la Act 1,
@@ -179,56 +179,9 @@ revertir esta decisión si hace falta Jupyter Lab standalone.
 | 6 — Algoritmos e hiperparámetros | T4, T5: los 5 algoritmos + Grid Search con rejillas de `params.yaml` | ✅ Cerrada (2026-08-15). Mezclada a `main` junto con la Fase 6A (misma rama `feature/fase-6-modelos`, ya borrada). `src/models.py` (los 5 estimadores, `build_search_grid` desde `params.yaml`, `build_cv`, `fit_grid_search`, `null_classifier_floor`). `notebooks/06_modelos.ipynb` (40 celdas, 20 de código, 0 errores, emparejado con `.py` vía jupytext, incluye nota de traspaso a la Fase 7 sobre encuadre clínico de las métricas y umbral de decisión). 9 tests nuevos (`test_fase6_modelos.py`, 33 tests totales en verde). **F6-R6 — hallazgo central de la fase (Trampa 1 del encargo):** `params.yaml` declaraba `metrics.optimize_for: "f1"` con `pos_label=1`, pero `Selector=1` (enfermo) es la clase MAYORITARIA (71.27% train) — el clasificador nulo "todos enfermos" saca F1=0.8323 sin aprender nada. Corregido a `"balanced_accuracy"` (suelo nulo 0.50 en cualquier split) — ver ADR-0012 y `docs/CHANGELOG_iteraciones.md` § Loop F. Verificado empíricamente: los 5 algoritmos superan el suelo de `balanced_accuracy` (0.67-0.72) y, como consecuencia esperada, quedan **por debajo** del suelo nulo de F1 (0.62-0.72 vs 0.8323) — fijado en `test_scoring_supera_el_suelo_nulo` para que no se lea como regresión. `gaussian_nb` es el peor de los 5 (F1=0.6234), coherente con F6-R8 (viola el supuesto de normalidad, asimetría hasta 10.5 en `Sgot`). Configuración base de ajuste (`params.yaml: tuning_baseline`): Z-Score + SMOTE, fijada para que la Fase 8 aísle el efecto del preprocesamiento sin confundirlo con un reajuste de hiperparámetros. |
 | 7 — Evaluación | T6, T7: métricas justificadas + tabla comparativa | ✅ Cerrada (2026-08-16, pendiente de confirmación del usuario antes de mezclar). `feature/fase-7-evaluacion`: `src/evaluate.py` (métricas, tabla de T7, matrices de confusión, umbral por CV, bootstrap), `notebooks/07_evaluacion.ipynb` (14 celdas de código, 0 errores, emparejado con `.py` vía jupytext). 7 tests nuevos (`test_fase7_evaluacion.py`, 40 tests totales en verde). **El test se evaluó UNA sola vez** (F7-R4). Ganador declarado por CV (Trampa 2): `logistic_regression`, `balanced_accuracy` (CV) = 0.7234 -- cifra de la variante oficial sin `Gender` ya registrada en `06_modelos.ipynb`; el número 0.7195 que circulaba como referencia corresponde a la variante CON `Gender`, no a la oficial. **Hallazgo central de la fase:** sobre el test (114 filas), el ganador por CV NO es el que mejor `balanced_accuracy` saca en test (`svm` 0.6824, `decision_tree` 0.6768, `gaussian_nb` 0.6762 quedan por encima de `logistic_regression` 0.6588) -- exactamente lo que predice Trampa 5 del encargo: con n=114 el bootstrap (F7-R8) muestra los intervalos de `logistic_regression` y `svm` ampliamente solapados (0.572-0.736 vs 0.621-0.744), así que la diferencia es ruido de muestreo, no evidencia de que un modelo sea mejor. Los 5 modelos quedan por debajo del suelo nulo en accuracy y F1 (consecuencia esperada de optimizar `balanced_accuracy`, F6-R6/ADR-0012), documentado explícitamente para que no se lea como regresión. Umbral oficial de T7: 0.5 (`params.yaml`); punto de cribado explorado por CV: 0.30 (recall 0.93), declarado como insumo de discusión, no adoptado automáticamente (ADR-0014). |
 | 8 — Experimento factorial | T8: {MinMax, Z-Score} × {SMOTE, sin SMOTE} × 5 modelos — **vale el 25%** | ✅ Cerrada (2026-08-16, pendiente de confirmación del usuario antes de mezclar). `feature/fase-8-factorial`: `src/factorial.py` (20 celdas por CV, sin tocar test, hiperparámetros congelados de la Fase 6), `notebooks/08_factorial.ipynb` (21 celdas de código, 0 errores, emparejado con `.py` vía jupytext). 6 tests nuevos (`test_fase8_factorial.py`, 46 tests totales en verde). **Hallazgo central (Trampa 4 del encargo):** sin SMOTE, 3 de las 20 celdas (`logistic_regression`/`svm` bajo `minmax`, `svm` bajo `zscore`) predicen "enfermo" para los 456 pacientes de train sin excepción -- `balanced_accuracy = 0.5000` exacto, verificado con las predicciones reales, no solo inferido de la métrica. **Segundo hallazgo (Trampa 3):** `gaussian_nb`/`decision_tree` son invariantes al escalado SOLO sin SMOTE (`gaussian_nb` también con SMOTE); `decision_tree`+SMOTE deja de serlo (diff 0.020427) porque SMOTE elige vecinos por distancia euclídea, sensible a la escala -- verificado comparando los pacientes sintéticos generados bajo cada escalador (47% de los 194 son distintos). Matiza la afirmación incondicional de F6-R7 -- registrado en Loop G del CHANGELOG y en ADR-0015, sin editar `06_modelos.ipynb` (fase cerrada, decisión explícita del usuario). En promedio, el balanceo tiene más impacto que el escalado sobre `balanced_accuracy` (efecto de SMOTE ≈ +0.09, efecto de escalado ≈ +0.02) y SMOTE sube el recall (0.799→0.554 sin SMOTE... ver notebook para la lectura completa) a costa de precisión, el intercambio correcto para cribado (F8-R7). Análisis de sensibilidad sin las 3 filas `DB>TB` (F8-R5): diferencia de 0.0119 en `balanced_accuracy`, conclusión no cambia. Predicción de F8-R6 (MinMax aplasta la mediana de las variables asimétricas) confirmada: medianas escaladas entre 0.006 y 0.074 bajo MinMax. |
-| 9 — Auditoría de equidad | Valor agregado: FNR por sexo vía CV repetida | ⬜ Sin empezar |
+| 9 — Auditoría de equidad | Valor agregado: FNR por sexo vía CV repetida | ✅ Cerrada (2026-08-16, pendiente de confirmación del usuario antes de mezclar). `feature/fase-9-fairness`: `src/fairness.py` (selector blindado, OOF de la CV repetida, agregación por voto mayoritario, métricas por sexo, IC bootstrap de pacientes, test exacto de Fisher, orquestación de las 4 variantes, controles de robustez), `notebooks/09_fairness.ipynb` (20 celdas de código, 0 errores, emparejado con `.py` vía jupytext). 7 tests nuevos (`test_fase9_fairness.py`, 53 tests totales en verde). **El test NO se usó** (verificado por `test_test_no_usado_en_fase9`); las métricas salen de predicciones *out-of-fold* de `RepeatedStratifiedKFold(5, n_repeats=10)` agregadas sobre las 456 filas de train (73 mujeres enfermas, 252 hombres enfermos). **Resolución declarada ANTES del resultado (Trampa 3):** con esa composición y una FNR supuesta de 0.45, una brecha menor de **±13.0 pp** no es distinguible del ruido (`declared_resolution`, `params["evaluation"]["fairness_assumed_fnr"]`). **Hallazgo central de la fase:** la brecha real observada en la variante oficial (`logistic_regression`, sin `Gender`, con SMOTE) es **+19.08 pp de FNR en mujeres** (54.8% vs. 35.7% en hombres) — **supera la resolución declarada**, su IC95 bootstrap por paciente es **[+5.6, +31.8] pp** (excluye 0) y el test exacto de Fisher da **p = 0.0043** (mismo test que Loop D aplicó a la Act. 1, donde dio p=0.055, no significativo). A diferencia de la brecha de diagnóstico de la Act. 1, **esta sí es distinguible del ruido**: el sesgo medido antes de entrenar (§10.1 de `informe_act1.md`) llega al modelo, en la misma dirección que Straw & Wu (2022, −24.07 pp) aunque de menor magnitud. ⚠️ **Precisión sobre qué modelo se audita:** el `k=10` congelado de la Fase 6/7 compitió entre 11 columnas (9 numéricas + 2 del indicador); bajo el selector blindado compite solo entre las 9 numéricas, así que selecciona las 9 + las 2 del indicador = **11 variables** — no las 10 que `GridSearchCV` eligió originalmente para el ganador de la Fase 7 (`balanced_accuracy` CV = 0.7234, cifra de ese modelo de 10). Declarado explícitamente en el notebook antes de F9-R1, con dos controles de robustez que muestran que la conclusión no depende de esta diferencia: (1) la brecha aparece con el mismo signo en las 10 repeticiones de la CV por separado, rango **[+17.3, +23.6] pp**; (2) repitiendo el análisis con el selector plano SIN blindar (el modelo real de 10 variables de la Fase 7) la brecha es **+20.45 pp, p=0.0027** — de magnitud comparable o mayor, el blindaje es conservador, no fabrica el hallazgo. **F9-R4 (SMOTE):** con SMOTE la brecha es significativa (+19.08 pp, p=0.0043); sin SMOTE es pequeña (+2.30 pp, p=0.478) pero **no es buena noticia** — la FNR absoluta cae a ~5% en ambos sexos porque el modelo casi no predice "sano" para nadie (conecta con la Trampa 4 de la Fase 8), no porque sea equitativo. **F9-R5 (`Gender`):** con `Gender` como variable la brecha es +16.34 pp (p=0.0143); sin ella, +19.08 pp (p=0.0043) — magnitud comparable, **quitar `Gender` no resuelve el sesgo** (F6A-R5, confirmado empíricamente). **Riesgo heredado de la Fase 6 (indicador TB/DB constante en 1 de 50 pliegues) resuelto, no solo declarado:** [ADR-0016](docs/adr/0016-selector-blindado-fase-9.md) — selector blindado local a `src/fairness.py`, sin tocar `src/pipelines.py`, con `k` acotado para evitar avisos redundantes de `sklearn`; los 46 tests de las Fases 4-8 quedan verdes sin cambios (ver Loop H del CHANGELOG). |
 | E2 — Entregables | Informe ≤15 págs + `act2_anexo.ipynb` | ⬜ Sin empezar |
 | P — Producción (MLOps) | `src/` + `tests/` + CI/CD + tablero Streamlit | ⬜ Sin empezar |
-
-### ⚠️ Riesgo conocido para la Fase 9 — indicador TB/DB constante en la CV repetida (traspaso de la Fase 6, 2026-08-15)
-
-**No resuelto a propósito: es decisión de la Fase 9, no de la 6/6A.**
-
-Cuando un pliegue de ENTRENAMIENTO de la validación cruzada no contiene
-ninguna de las 3 filas con `TB`/`DB` nulos (índices 246, 261, 279), el
-indicador `MissingIndicator(features="all")` queda constante en ese
-pliegue (0 en todas las filas) — no es un error, es exactamente el
-comportamiento que ADR-0011 garantiza (ancho de salida estable). Pero
-`f_classif` (el `score_func` de `SelectKBest` en la Fase 6A/6) calcula un
-F-estadístico basado en varianza entre grupos, y una columna constante
-tiene varianza 0: el cálculo da `0/0` y devuelve `NaN` para esa columna
-(reproducido: `UserWarning: Features [9 10] are constant` +
-`RuntimeWarning: invalid value encountered in divide`). `SelectKBest` no
-falla — simplemente nunca elige una columna con score `NaN`, así que el
-indicador queda **descartado en silencio** de ese pliegue, sin ningún
-aviso visible en un `GridSearchCV` normal.
-
-**Medido con `RepeatedStratifiedKFold(n_splits=5, n_repeats=10,
-random_state=42)`:**
-
-| Escenario | Población | Pliegues de entrenamiento sin ninguna fila nula |
-|---|---|---|
-| CV de ajuste de la Fase 6 (`StratifiedKFold(5)`, 5 pliegues) | train (456) | 0 de 5 |
-| CV de equidad de la Fase 9 (`RepeatedStratifiedKFold(5,10)`, 50 pliegues) | train (456) | **1 de 50** (pliegue #42, 0-indexado — reproducido y verificado: `SelectKBest` con `k=7` descarta las 2 columnas del indicador en ese pliegue) |
-| Mismo escenario | dataset completo (570) | 0 de 50 |
-
-La elección de población de la CV de la Fase 9 (¿train, o el dataset
-completo para que entren las ~142 mujeres que motivan F9-R2?) todavía no
-está tomada, y este hallazgo debería informarla: sobre el dataset
-completo el riesgo desaparece; sobre train, ocurre en el 2% de los
-ajustes.
-
-**Dos salidas posibles, a decidir en la Fase 9:**
-
-1. **Declararlo como limitación conocida.** En 1 de 50 ajustes (si la CV
-   corre sobre train), el modelo pierde temporalmente la señal "esta fila
-   fue imputada" para 3 filas. Su efecto sobre la FNR agregada de 50
-   ajustes es plausiblemente mínimo, pero debe **medirse**, no asumirse.
-2. **Blindarlo** — excluir las 2 columnas del indicador de la selección
-   de variables (que `SelectKBest` nunca las evalúe/descarte; p. ej.
-   pasarlas siempre como columnas fijas fuera del selector). Defendible
-   porque su valor informativo no viene de un contraste de varianza entre
-   clases (lo que mide `f_classif`) sino de marcar qué filas fueron
-   imputadas — no tiene sentido evaluarlas con el mismo criterio que las
-   variables clínicas.
 
 ### ⚠️ Deuda técnica conocida — `ruff check .` (registrada 2026-08-15, Fase 4; actualizada Fase 5)
 
