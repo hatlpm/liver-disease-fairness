@@ -503,3 +503,72 @@ optimizado por F1, y **eso es la corrección funcionando, no una
 regresión** — queda fijado en
 `tests/test_fase6_modelos.py::test_scoring_supera_el_suelo_nulo` para que
 una sesión futura no lo lea como un error.
+
+---
+
+## 2026-08-16 — Loop G: Evaluation (Fase 8) → Modeling (Fase 6) — el control de coherencia de F6-R7 necesita el condicional "sin SMOTE"
+
+**Disparador:** al construir `tests/test_fase8_factorial.py::test_invarianza_condicionada_al_balanceo`
+(Trampa 3 del encargo de la Fase 8), la comparación real de `balanced_accuracy`
+de CV entre `MinMax` y `Z-Score`, para las 20 celdas del factorial, mostró que
+`decision_tree` **deja de ser invariante al escalado en presencia de SMOTE**
+-- contradiciendo la afirmación incondicional que `06_modelos.ipynb` (F6-R7,
+fase ya cerrada y mezclada a `main`) dejó escrita como "control de coherencia
+gratuito": *"Naive Bayes y árboles son insensibles al escalado. Si en T8 sus
+métricas cambian entre MinMax y Z-Score, hay un error en el experimento."*
+Esa misma celda de `06_modelos.ipynb` promete además un test futuro llamado
+`test_modelos_invariantes_a_escala` -- nombre distinto del que exige el
+encargo de la Fase 8 (`test_invarianza_condicionada_al_balanceo`), una
+referencia cruzada que queda desactualizada.
+
+**Hallazgo.** Medido sobre train (456 filas, CV estratificada de 5 pliegues,
+variante oficial sin `Gender`), `|balanced_accuracy(MinMax) −
+balanced_accuracy(Z-Score)|`:
+
+| modelo | sin SMOTE | con SMOTE |
+|---|---|---|
+| `gaussian_nb` | 0.000000 | 0.000000 |
+| `decision_tree` | 0.000000 | **0.020427** |
+| `svm` | 0.000000 | 0.053219 |
+| `logistic_regression` | 0.018034 | 0.067892 |
+| `knn` | 0.036154 | 0.050969 |
+
+**Mecanismo, verificado empíricamente (no solo afirmado):**
+`gaussian_nb`/`decision_tree` son invariantes a una transformación afín por
+variable (el árbol compara una variable contra un umbral -- el orden no
+cambia al escalar; `GaussianNB` ajusta media/varianza por variable de forma
+independiente). Pero **`SMOTE` elige los `k` vecinos más cercanos de cada
+paciente minoritario por distancia euclídea, que sí depende de la escala
+relativa entre variables**. `src/factorial.py::smote_neighbor_agreement_across_scalers`
+midió, sobre los 325 pacientes minoritarios de train, un índice de Jaccard
+medio de 0.6949 entre el conjunto de 5 vecinos que SMOTE usaría bajo cada
+escalador (solo 85 de 325 pacientes tienen exactamente el mismo conjunto de
+vecinos bajo ambos). `src/factorial.py::compare_smote_synthetic_across_scalers`
+comparó los 194 pacientes sintéticos resultantes, revertidos a unidades
+originales: **91 de 194 (47%) son pacientes genuinamente distintos** entre
+`MinMax` y `Z-Score` (distancia de hasta 273 unidades en variables como
+`Alkphos`). Un estimador invariante al escalado deja de dar el mismo
+resultado si se entrena sobre datos sintéticos distintos -- la invariancia
+del estimador no sobrevive a un remuestreo que sí es sensible a la escala.
+`gaussian_nb` sí sobrevive porque agrega media/varianza por variable en vez
+de depender de qué sintéticos concretos entraron al ajuste.
+
+**Decisión:** registrado en
+[ADR-0015](adr/0015-hiperparametros-congelados-en-el-factorial.md) y en
+`notebooks/08_factorial.ipynb` (F8-R4). **No se edita `06_modelos.ipynb`**
+-- decisión explícita del usuario al aprobar el plan de la Fase 8: es una
+fase cerrada y mezclada a `main`, y el matiz queda documentado aquí y citado
+desde la Fase 8 en vez de reabrirla. El test de la Fase 8 se escribió en su
+forma condicional desde el principio (exige invariancia estricta solo en
+`(gaussian_nb, sin SMOTE)`, `(decision_tree, sin SMOTE)` y
+`(gaussian_nb, con SMOTE)`; no exige nada de `svm`, cuya rejilla usa
+`gamma="scale"` -- dependiente de la varianza post-escalado, sin la garantía
+estructural de NB/árbol).
+
+**Impacto:** ningún cálculo de las Fases 4-7 cambia -- el hallazgo matiza una
+frase de discusión de la Fase 6 (F6-R7), no ninguna cifra de su tabla ni de
+la tabla de T7. Sí cambia cómo se debe leer el "control de coherencia" para
+cualquier fase futura que compare escalados con SMOTE de por medio: la
+invariancia teórica de un estimador no es transferible sin más al pipeline
+completo si alguno de los pasos anteriores (remuestreo, en este caso) es
+sensible a la escala.

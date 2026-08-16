@@ -47,3 +47,4 @@ edita el original.
 | [0012](0012-metrica-de-optimizacion-balanced-accuracy.md) | Métrica de optimización de `GridSearchCV`: `balanced_accuracy` en vez de F1 con clase positiva mayoritaria |
 | [0013](0013-venv-fuera-de-onedrive.md) | El `venv/` se crea siempre fuera de OneDrive, en `%LOCALAPPDATA%\venvs\<repo>` |
 | [0014](0014-umbral-de-decision-oficial-vs-punto-de-cribado.md) | La tabla de T7 reporta a umbral 0.5; el punto de cribado explorado (0.30) no la reemplaza en silencio |
+| [0015](0015-hiperparametros-congelados-en-el-factorial.md) | Hiperparámetros de la Fase 6 congelados (vía `set_params`) en las 20 celdas del factorial de la Fase 8, nunca reajustados por celda |
