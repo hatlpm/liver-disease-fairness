@@ -58,6 +58,18 @@ feature_selection:
   k_values: [5, 7, 10]
   include_gender: [true, false] # F6A-R4: ambas variantes obligatorias
 
+# Fase 7 (F7-R7/R8): parametros de evaluacion sobre el test congelado.
+# El umbral OFICIAL de la tabla T7 sigue siendo metrics.decision_threshold
+# (0.5) -- threshold_grid y screening_min_recall solo alimentan la seccion
+# de exploracion de umbral, que corre exclusivamente sobre train/CV
+# (Trampa 3 del encargo, nunca sobre test). Ver ADR-0014.
+evaluation:
+  bootstrap:
+    n_iterations: 2000 # regla practica de Efron para un IC percentil estable
+    confidence_level: 0.95
+  threshold_grid: [0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70]
+  screening_min_recall: 0.90 # decision de producto citada explicitamente en el notebook
+
 grids: # B1: fijas de antemano, no improvisadas en el notebook
   logistic_regression:
     C: [0.01, 0.1, 1, 10, 100]

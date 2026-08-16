@@ -170,6 +170,15 @@ SURFACE = "#fcfcfb"
 # (con zscore/minmax converge muchísimo antes).
 LOGREG_MAX_ITER = 1000
 
+# --- Fase 7: constante técnica de las métricas ---
+# `zero_division` de sklearn no es un hiperparámetro del experimento (no se
+# busca ni se reporta): es un valor defensivo para el caso límite en que un
+# remuestreo bootstrap (F7-R8) deje, por azar, alguna clase sin predicciones
+# positivas -- evita que sklearn lance UndefinedMetricWarning/NaN en medio de
+# 2000 iteraciones. 0 es conservador (penaliza precisión/recall no definidos
+# en vez de inflarlos).
+SKLEARN_ZERO_DIVISION = 0
+
 
 # --- Actividad 2: parámetros del experimento (params.yaml) ---
 def load_params(path: Path = PARAMS_PATH) -> dict:
