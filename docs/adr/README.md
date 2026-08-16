@@ -43,6 +43,8 @@ edita el original.
 | [0005](0005-prd-fuera-del-repositorio.md) | El PRD permanece fuera del repositorio, sin versionar |
 | [0006](0006-deduplicar-antes-del-split.md) | Deduplicar antes del split, no después (fuga de datos crítica de la Actividad 2) |
 | [0007](0007-tratamiento-de-nulos.md) | Tratamiento de nulos: reconstrucción determinista de `A/G Ratio` + imputación con indicador dentro del `Pipeline` |
+| [0008](0008-metricas-de-equidad-por-cv-repetida.md) | Las métricas de equidad se calculan por CV repetida sobre train, no sobre el split único (18 mujeres enfermas en test frente a 73 en train) |
+| [0009](0009-src-fuente-de-verdad-notebooks-emparejados.md) | `src/` es la fuente de verdad; los notebooks narran y se emparejan con `jupytext`. Excepción declarada: el anexo académico lleva el código en línea |
 | [0011](0011-indicador-nulos-columntransformer-dos-ramas.md) | Indicador de nulos vía `ColumnTransformer` de dos ramas (`MissingIndicator(features="all")`), no `SimpleImputer(add_indicator=True)` |
 | [0012](0012-metrica-de-optimizacion-balanced-accuracy.md) | Métrica de optimización de `GridSearchCV`: `balanced_accuracy` en vez de F1 con clase positiva mayoritaria |
 | [0013](0013-venv-fuera-de-onedrive.md) | El `venv/` se crea siempre fuera de OneDrive, en `%LOCALAPPDATA%\venvs\<repo>` |

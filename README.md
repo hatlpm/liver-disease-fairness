@@ -63,11 +63,19 @@ Posteriormente recibió dos rondas de revisión: una auditoría metodológica ex
 | 5 — Pipeline y balanceo | `imblearn.Pipeline`, SMOTE solo en train | ✅ |
 | 6A — Selección de variables | `SelectKBest` dentro del `Pipeline`; decisión sobre `Gender` | ✅ |
 | 6 — Algoritmos e hiperparámetros | Los 5 algoritmos + Grid Search | ✅ |
-| 7 — Evaluación | Métricas justificadas y tabla comparativa | ⬜ |
-| 8 — Experimento factorial | {MinMax, Z-Score} × {SMOTE, sin SMOTE} × 5 modelos | ⬜ |
-| 9 — Auditoría de equidad | FNR por sexo vía validación cruzada repetida | ⬜ |
-| E2 — Entregables | Informe y `act2_anexo.ipynb` | ⬜ |
+| 7 — Evaluación | Métricas justificadas y tabla comparativa | ✅ |
+| 8 — Experimento factorial | {MinMax, Z-Score} × {SMOTE, sin SMOTE} × 5 modelos | ✅ |
+| 9 — Auditoría de equidad | FNR por sexo vía validación cruzada repetida | ✅ |
+| E2 — Entregables | Informe y `act2_anexo.ipynb` | ✅ |
 | P — Producción | CLI, CI/CD, pipeline serializado, tablero Streamlit | ⬜ |
+
+**Los resultados están en [`reports/informe_act2.pdf`](reports/informe_act2.pdf)** (11 páginas) y el código de las ocho tareas, en orden literal T1→T8, en [`notebooks/act2_anexo.ipynb`](notebooks/act2_anexo.ipynb).
+
+Tres resultados que conviene no leer al revés:
+
+- **Los cinco modelos quedan por debajo del clasificador trivial en *accuracy* y F1.** No es una derrota: con la clase positiva siendo la mayoritaria (71%), responder "enfermo" a todo el mundo saca F1 = 0.83 sin aprender nada. Por eso los hiperparámetros se seleccionan por `balanced_accuracy`, cuyo suelo es 0.50. El modelo ganador saca 0.6588 sobre prueba; el trivial, 0.5000 exacto.
+- **Sin balanceo, 2 de los 5 algoritmos exigidos no aprenden nada.** Tres de las 20 celdas del experimento factorial predicen "enfermo" para los 456 pacientes de entrenamiento, sanos incluidos. El balanceo no es un ajuste fino: es la diferencia entre tener un clasificador y no tenerlo.
+- **La brecha de equidad llega al modelo.** La tasa de falsos negativos es del **54.8% en mujeres frente al 35.7% en hombres** (+19.08 pp, IC95 [+5.6, +31.8], Fisher p = 0.0043). Misma dirección que Straw & Wu (2022), con magnitud algo menor. **Quitar `Gender` del modelo no la resuelve.**
 
 ## Estructura
 
@@ -119,12 +127,15 @@ Verificación rápida de que quedó bien: `load_raw_data()` debe devolver un Dat
 Para ejecutar un notebook de principio a fin y verificar que no falla:
 
 ```powershell
-& "$env:LOCALAPPDATA\venvs\liver-disease-fairness\Scripts\python.exe" -m nbconvert --to notebook --execute notebooks/act1_anexo.ipynb
+$env:PATH = "$env:LOCALAPPDATA\venvs\liver-disease-fairness\Scripts;$env:PATH"
+& "$env:LOCALAPPDATA\venvs\liver-disease-fairness\Scripts\python.exe" -m nbconvert --to notebook --execute notebooks/act2_anexo.ipynb
 ```
 
 > El entorno usa `ipykernel` + `nbconvert` en lugar del metapaquete `jupyter`, que no se puede instalar por el límite de rutas largas de Windows agravado por la ruta de OneDrive. Ver `docs/adr/0002-entorno-notebooks-sin-jupyterlab.md`.
+>
+> ⚠️ **`python -m nbconvert`, no `jupyter nbconvert`**, y con el `Scripts` del venv al frente del `PATH`. Los *shims* `.exe` del venv están bloqueados en al menos una máquina del proyecto, y el `kernel.json` lanza `python` sin ruta — sin ese `PATH`, el notebook se ejecutaría contra el Python del sistema, que no tiene las dependencias. Detalle en `AGENTS.md`.
 
-Los cinco notebooks de la Actividad 1 pasan *restart & run all* sin errores, sin rutas absolutas y con `RANDOM_STATE = 42` fijo. Verificado por última vez el **2026-08-15**, en una máquina distinta de aquella en que se escribieron. Los tres notebooks de la Actividad 2 (`04`, `05`, `06`) se ejecutaron completos y sin errores al cerrar su fase respectiva.
+Los cinco notebooks de la Actividad 1 pasan *restart & run all* sin errores, sin rutas absolutas y con `RANDOM_STATE = 42` fijo. Verificado por última vez el **2026-08-15**, en una máquina distinta de aquella en que se escribieron. Los notebooks de la Actividad 2 (`04`–`09` y `act2_anexo`) se ejecutaron completos y sin errores al cerrar su fase respectiva.
 
 La otra mitad de la verificación son los tests, que existen precisamente para que una sesión nueva sepa qué está realmente cerrado sin fiarse de la documentación:
 

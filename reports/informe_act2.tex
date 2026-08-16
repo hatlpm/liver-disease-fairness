@@ -1,0 +1,614 @@
+% =====================================================================
+%  Actividad 2 - Modelado y evaluacion para la prediccion de
+%  enfermedades hepaticas (ILPD)
+%
+%  Compilar con pdfLaTeX, DOS pasadas:
+%    pdflatex -interaction=nonstopmode --disable-installer informe_act2.tex
+%  Las figuras se leen de ./figures/ (este archivo vive en reports/).
+%  Preambulo heredado de informe_act1.tex: los mandos de compacidad ya
+%  estaban calibrados alli. Limite duro: 15 paginas.
+% =====================================================================
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot,es-noquoting,es-tabla]{babel}
+\usepackage[top=1.75cm,bottom=1.6cm,left=1.95cm,right=1.95cm]{geometry}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\usepackage[compact]{titlesec}
+
+\graphicspath{{figures/}}
+
+\titlespacing*{\section}{0pt}{1.1ex plus .2ex}{0.7ex plus .1ex}
+\titlespacing*{\subsection}{0pt}{0.9ex plus .2ex}{0.4ex plus .1ex}
+\titleformat{\section}{\normalfont\large\bfseries}{\thesection.}{0.6em}{}
+\titleformat{\subsection}{\normalfont\normalsize\bfseries}{\thesubsection.}{0.5em}{}
+
+% --- Ajustes de compacidad (subir/bajar si sobran o faltan paginas) ---
+\captionsetup{font=footnotesize,labelfont=bf,skip=3pt}
+\setlist{nosep,leftmargin=1.4em}
+\setlength{\parskip}{0.10em}
+\setlength{\parindent}{0pt}
+\renewcommand{\arraystretch}{1.04}
+
+% Los identificadores de codigo en \texttt (imblearn.pipeline.Pipeline,
+% balanced_accuracy) son tokens largos que TeX no puede partir y que
+% desbordaban el margen. emergencystretch le da holgura de espaciado en
+% vez de hifenar codigo, que seria peor de leer.
+\setlength{\emergencystretch}{3em}
+
+% Columna X centrada, para tablas numericas
+\newcolumntype{C}{>{\centering\arraybackslash}X}
+
+\title{\vspace{-1.6cm}\textbf{Modelado y evaluación para la predicción\\de enfermedades hepáticas}}
+\author{Actividad 2 --- Preparación, entrenamiento y evaluación de cinco algoritmos \\
+sobre el \textit{Indian Liver Patient Dataset} (ILPD)}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-1.1cm}
+\begin{center}
+\small
+\textbf{Repositorio del proyecto:} \url{https://github.com/hatlpm/liver-disease-fairness}\\[0.15em]
+\footnotesize Código ejecutable en \texttt{notebooks/act2\_anexo.ipynb}; decisiones de ingeniería, tests y fuentes versionados
+\end{center}
+\vspace{-0.5cm}
+
+% =====================================================================
+\section{Introducción, contexto y alcance}
+
+La Actividad 1 auditó el ILPD ---583 analíticas de pacientes del noreste de Andhra Pradesh, India--- y concluyó que es \textbf{adecuado para práctica metodológica pero insuficiente para conclusiones clínicas}: nueve problemas de calidad, ausencia de variables etiológicas y una etiqueta que no es verdad biológica sino el juicio de un especialista. Esta actividad continúa desde ahí: entrena cinco algoritmos sobre esos datos y evalúa qué se puede afirmar con ellos.
+
+\subsection{Qué se predice, y la trampa que trae incorporada}
+
+La variable objetivo es \texttt{Selector}: \textbf{1 = paciente hepático, 2 = no hepático}. Se recodifica a $\{1, 0\}$ dejando explícito que \textbf{la clase positiva es ``enfermo''}. Esa decisión, que parece un tecnicismo, gobierna todo el informe: significa que \textbf{la clase positiva es también la mayoritaria} (71.23\% del dataset). Un clasificador que respondiera ``enfermo'' a todos los pacientes, sin mirar un solo análisis de sangre, acertaría el \textbf{71\%}. Es el suelo contra el que hay que leer cualquier cifra de este documento, y la sección 4 muestra que dos de las cuatro métricas que pide el enunciado están saturadas por él.
+
+\texttt{Selector} sigue siendo un \textbf{\textit{proxy label}}: un modelo entrenado sobre ella no aprende \textit{``quién tiene enfermedad hepática''} sino \textit{``a quién le diagnosticaron enfermedad hepática en ese hospital''}, y hereda los sesgos de ese sistema.
+
+\subsection{Una precisión sobre el enunciado}
+
+Los objetivos de la actividad mencionan explorar \textit{``el consumo de alcohol y el diagnóstico de hepatitis''}. \textbf{Esas variables no existen en el ILPD.} El dataset registra nueve marcadores bioquímicos, edad y sexo, y nada más. No se han inventado ni aproximado: es la limitación ``ausencia de etiología'' que la Actividad 1 ya documentó, y que impide aprender la \textit{causa} del daño hepático, solo su firma bioquímica.
+
+\subsection{Alcance y regla de trabajo}
+
+Se responden las ocho tareas de las Etapas 3 y 4. Se añade, como trabajo propio fuera del enunciado, una \textbf{auditoría de equidad por sexo} (sección 6), motivada por que el propio enunciado señala a Straw \& Wu (2022) como lectura de referencia.
+
+Regla que ordena toda la metodología: \textbf{el conjunto de prueba se congeló al dividir los datos y se tocó una sola vez}, en la sección 4. Ninguna decisión de limpieza, balanceo, selección de variables o ajuste de hiperparámetros lo consultó. \textbf{Ningún valor de este informe es estimado}: todos proceden de una celda ejecutada en \texttt{notebooks/act2\_anexo.ipynb}, y un test automático (\texttt{tests/test\_fase\_e2\_informe.py}) verifica que las cifras aquí publicadas coinciden con las que produce el código.
+
+% =====================================================================
+\section{Preparación de los datos (T1, T2, T3)}
+
+\subsection{Limpieza (T1)}
+
+\textit{¿Cómo aseguraste que los datos estuvieran limpios y listos para el modelado?}
+
+Cuatro operaciones deterministas, todas anteriores a la división. El criterio que decide qué puede ir antes de dividir y qué no es uno solo, y conviene enunciarlo primero porque estructura toda la sección:
+
+\begin{quote}
+\textbf{Una operación fila a fila puede ir antes de la división; una estadística calculada sobre el conjunto, no.} Lo primero usa únicamente datos del propio paciente; lo segundo mezcla información de pacientes que después harán de prueba, y eso es \textit{fuga de datos}: infla las métricas sin que nada avise.
+\end{quote}
+
+\textbf{(a) Deduplicación: 583 $\rightarrow$ 570 filas.} El dataset contiene \textbf{13 pares de filas exactamente idénticas} (26 filas). La Actividad 1 decidió conservarlas, y esa decisión era correcta allí: no se entrenaba ningún modelo y no había forma de distinguir entre ``dos pacientes distintos con analítica idéntica'' y ``un error de captura''. \textbf{Aquí el criterio cambia porque el riesgo cambia.} Si un par idéntico queda repartido entre entrenamiento y prueba, el modelo memoriza la fila y la ``acierta'' en la evaluación: no es generalización, es memorización, e infla todas las métricas.
+
+No es un riesgo teórico. Con la semilla del proyecto, \textbf{5 de los 13 pares caerían a ambos lados de la división}. Se deduplica conservando la primera aparición. Es una \textbf{divergencia deliberada respecto de la Actividad 1}, y el coste ---13 filas de 583, el 2.2\%--- es muy inferior al de una métrica sistemáticamente optimista.
+
+\textbf{(b) Reconstrucción de \texttt{A/G Ratio}: 4 valores faltantes.} El cociente albúmina/globulina no es una medición independiente: se calcula como \texttt{ALB / (TP $-$ ALB)}, y \textbf{ambos insumos sí están medidos} en las cuatro filas donde falta.
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}l l r r r@{}}
+\toprule
+\textbf{Fila} & \textbf{Sexo} & \textbf{\texttt{TP}} & \textbf{\texttt{ALB}} & \textbf{Valor reconstruido} \\
+\midrule
+209 & Mujer & 6.6 & 3.9 & \textbf{1.44} \\
+241 & Hombre & 6.5 & 3.1 & \textbf{0.91} \\
+253 & Mujer & 5.2 & 2.7 & \textbf{1.08} \\
+312 & Hombre & 8.5 & 4.8 & \textbf{1.30} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Medido sobre las filas que sí tienen valor, el error absoluto mediano de la fórmula es \textbf{0.031}, frente a \textbf{0.152} de la imputación por la media: \textbf{4.9 veces más precisa}. La Actividad 1 ---y el estudio que publicó el dataset--- usaron la media.
+
+Con la honestidad que el proyecto se exige: \textbf{la fórmula tampoco es exacta.} \texttt{TP} y \texttt{ALB} vienen redondeadas a un decimal, y dividir cantidades redondeadas amplifica el error relativo. \textbf{La correlación entre el valor registrado y el calculado es 0.85, no 1.0.} Es derivada por construcción, pero el redondeo impide recuperarla perfectamente.
+
+\textbf{No es fuga}, y por eso puede ir antes de dividir: es aritmética fila a fila, sin ninguna estadística del conjunto.
+
+\textbf{(c) Tres filas bioquímicamente imposibles.} La bilirrubina directa es una \textit{fracción} de la total, de modo que \texttt{DB} $\leq$ \texttt{TB} se cumple por definición. Tres filas la violan (índices 246, 261 y 279). No hay evidencia de cuál de los dos valores es el erróneo ---corregir uno sería inventar--- y eliminar la fila descartaría el resto de la analítica de esos pacientes, que sí es válida. \textbf{Se marcan ambos valores como faltantes y las filas se conservan}, elevando los faltantes a 6.
+
+Estos 6 se dejan \textbf{sin imputar en esta etapa, a propósito}: la imputación por mediana es una estadística de grupo, y calcularla ahora sería exactamente la fuga que el criterio de arriba prohíbe. Se imputa dentro del \textit{pipeline} (sección 2.2), con un indicador binario que le dice al modelo qué valores fueron reconstruidos.
+
+\textbf{(d) Codificación y limpieza heredada.} \texttt{Gender} pasa a $\{0, 1\}$ y \texttt{Selector} a $\{1 =$ enfermo, $0 =$ sano$\}$. Se documenta además que \texttt{Age = 90} \textbf{no es una edad} sino un tope administrativo de anonimización (``cualquier paciente de más de 89 figura como 90''): hay \textbf{un solo paciente} con ese valor.
+
+El dataset de modelado queda en \textbf{570 filas $\times$ 11 columnas con 6 valores faltantes}. Cero faltantes es requisito técnico: cuatro de los cinco algoritmos no aceptan \texttt{NaN}, y usar rutas distintas por modelo rompería la comparabilidad de la tabla de la sección 4.
+
+\subsection{Balanceo (T2)}
+
+\textit{¿Aplicaste técnicas de balanceo, como SMOTE? Describe el proceso y su impacto.}
+
+Sí, \textbf{SMOTE} (\textit{Synthetic Minority Over-sampling Technique}). Genera pacientes sintéticos de la clase minoritaria interpolando entre vecinos cercanos, en lugar de duplicar filas existentes.
+
+\textbf{El proceso, y la decisión que importa más que la técnica.} SMOTE va \textbf{dentro} de un \texttt{imblearn.\allowbreak pipeline.\allowbreak Pipeline}, encadenado como imputación $\rightarrow$ escalado $\rightarrow$ selección de variables $\rightarrow$ SMOTE $\rightarrow$ estimador. Esto no es un detalle de implementación:
+
+\begin{itemize}
+\item Aplicado \textbf{una sola vez por fuera}, pacientes sintéticos generados a partir de una fila acabarían en el pliegue de validación mientras su fila de origen está en el de entrenamiento. El modelo estaría validándose contra copias interpoladas de lo que ya vio.
+\item Aplicado \textbf{dentro del \textit{pipeline}}, SMOTE se re-ejecuta en cada pliegue y \textbf{solo sobre la porción de entrenamiento de ese pliegue}.
+\end{itemize}
+
+Se usa el \textit{pipeline} de \texttt{imblearn} y no el de \texttt{scikit-learn} porque este último no sabe qué hacer con un paso de remuestreo: le pediría a SMOTE que transformara también al predecir, es decir, \textbf{aplicaría sobremuestreo al conjunto de prueba}.
+
+\textbf{El impacto sobre el tamaño.} El entrenamiento pasa de \textbf{456 a 650 filas} (325 enfermos / 131 sanos $\rightarrow$ 325 / 325): \textbf{194 pacientes sintéticos}, todos de la clase minoritaria. El conjunto de prueba \textbf{sigue en 114 filas} tras ejecutar el \textit{pipeline} completo y predecir --- verificado, no afirmado.
+
+\textbf{El impacto sobre quién queda representado.} SMOTE es ciego al sexo, y eso tiene consecuencias medibles. La comparación ingenua ---proporción de mujeres en todo el entrenamiento, antes y después--- pasa de 24.56\% a 24.31\% y sugiere que no ocurre nada; pero está \textbf{diluida} por las 456 filas reales, que no cambian. La comparación correcta es entre la minoría que SMOTE replica y los sintéticos que genera:
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}l r r r@{}}
+\toprule
+& \textbf{Mujeres} & \textbf{Total} & \textbf{\%} \\
+\midrule
+Minoría de entrenamiento (sanos) & 39 & 131 & \textbf{29.77\%} \\
+Los 194 pacientes sintéticos & 46 & 194 & \textbf{23.71\%} \\
+\midrule
+& & \textbf{Brecha} & \textbf{$-$6.06 pp} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{SMOTE subrepresenta a las mujeres entre los pacientes que inventa}, y no por ninguna decisión explícita: por mecánica propia. Esa brecha se descompone en \textbf{dos causas independientes}:
+
+\begin{itemize}
+\item \textbf{Truncamiento a entero ($-$3.09 pp).} \texttt{Gender} es una columna entera, pero SMOTE la \textit{interpola}: \textbf{19 de los 194 sintéticos salen con un valor fraccionario} (0.368, 0.165, 0.488\dots). Al reconstruir la tabla, la librería preserva el tipo original y \textbf{trunca hacia 0 ---hombre--- en lugar de redondear al más cercano}. Redondeando correctamente, los sintéticos serían 26.80\% mujeres en vez de 23.71\%.
+\item \textbf{Geometría de la interpolación ($-$2.97 pp).} Es la componente que importa: \textbf{aunque el truncamiento se corrigiera, seguiría faltando casi tres puntos de mujeres}. SMOTE elige los $k$ vecinos más cercanos por distancia euclídea, y el sexo no participa en ese criterio más que como una dimensión entre otras. Nada garantiza que los vecinos clínicamente más parecidos a una paciente sean mayoritariamente mujeres.
+\end{itemize}
+
+Lo segundo \textbf{no es un error de implementación corregible}: es cómo funciona el algoritmo. La sección 6 comprueba si se traduce en peor rendimiento sobre ellas.
+
+\textbf{Alternativas descartadas.} El \textbf{submuestreo} de la mayoría no inventa nada, pero exigiría descartar 194 de los 325 enfermos reales: con $n=456$ es un lujo impagable. \textbf{\texttt{class\_weight='balanced'}} no toca los datos ---solo repondera la función de pérdida--- pero no lo admiten los cinco algoritmos (ni KNN ni Naive Bayes gaussiano lo tienen), y romper la comparabilidad de la tabla comparativa es peor que el problema que resolvería.
+
+\subsection{División en entrenamiento y prueba (T3)}
+
+\textit{¿Cómo dividiste el conjunto en entrenamiento y prueba? Proporciones.}
+
+División estratificada con \texttt{train\_test\_split}: \textbf{456 filas de entrenamiento (80\%) y 114 de prueba (20\%)}, con semilla fija para que sea reproducible bit a bit. \textbf{Las proporciones se conservan.}
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}l r r r@{}}
+\toprule
+& \textbf{Completo} & \textbf{Entrenamiento} & \textbf{Prueba} \\
+\midrule
+\texttt{Selector = 1} (enfermo) & 0.7123 & 0.7127 & 0.7105 \\
+\texttt{Gender = 1} (mujer) & 0.2456 & 0.2456 & 0.2456 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La \textbf{desviación máxima es 0.0018} --- menos de dos décimas de punto porcentual.
+
+\textbf{La estratificación es por la clave compuesta \texttt{Selector} $\times$ \texttt{Gender}}, no solo por la clase. En un proyecto cuyo eje es la equidad por sexo, dejar la composición del conjunto de prueba al azar significa que el tamaño del subgrupo femenino ---del que dependerá cualquier medida de equidad--- quede fijado por el muestreo. La diferencia es concreta: estratificando \textbf{solo por \texttt{Selector}} el conjunto de prueba queda con 33 mujeres y \textbf{8} sanas; con la \textbf{clave compuesta}, con 28 mujeres y \textbf{10} sanas.
+
+\textbf{Por qué 0.2, y qué consecuencia tiene.} Es el compromiso habitual, pero arrastra un límite que conviene declarar antes de que aparezca como sorpresa: con 114 filas de prueba quedan \textbf{28 mujeres, de las cuales solo 10 son sanas}. \textbf{Es insuficiente para medir equidad} --- una sola predicción distinta movería la tasa de falsos negativos femenina unos 10 puntos porcentuales. Por eso la auditoría de la sección 6 \textbf{no usa esta división}, sino validación cruzada repetida sobre las 456 filas de entrenamiento.
+
+\textbf{Cero fuga, demostrada y no afirmada.} Se construyó una firma de texto por fila y se comprobó que \textbf{ninguna se comparte entre entrenamiento y prueba}; los índices son disjuntos. Es el control que atrapa exactamente el problema que motivó deduplicar.
+
+% =====================================================================
+\section{Algoritmos e hiperparámetros (T4, T5)}
+
+\subsection{Los cinco algoritmos y su configuración (T4)}
+
+\textit{¿Qué algoritmos seleccionaste y cómo configuraste cada uno?}
+
+Los \textbf{cinco exigidos por el enunciado}, sin sustituciones: regresión logística, KNN, Naive Bayes gaussiano, árbol de decisión y SVM. Los cinco viven dentro del \textbf{mismo} \textit{pipeline}, de modo que la comparación entre ellos es limpia: ninguno recibe un preprocesamiento distinto.
+
+\begin{table}[H]
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Algoritmo} & \textbf{Hiperparámetros} & \textbf{Por qué importan \textit{en este dataset}} \\
+\midrule
+Regresión logística & \texttt{C}, \texttt{solver} & \texttt{C} controla la regularización. Con \texttt{A/G Ratio} derivada de \texttt{TP} y \texttt{ALB} hay colinealidad \textit{por construcción}, y la regularización impide que los coeficientes se disparen entre variables redundantes \\
+KNN & \texttt{n\_neighbors}, \texttt{weights} & Con solo 131 pacientes sanos, un vecindario grande diluye la clase minoritaria; ponderar por distancia lo compensa parcialmente \\
+Naive Bayes & \texttt{var\_smoothing} & Añade varianza artificial a cada variable: es justamente el parche frente a distribuciones muy apuntadas, que es el caso aquí \\
+Árbol de decisión & \texttt{max\_depth}, \texttt{min\_samples\_leaf}, \texttt{criterion} & Con 456 filas el sobreajuste es el riesgo dominante: un árbol sin podar memoriza pacientes individuales \\
+SVM & \texttt{C}, \texttt{kernel}, \texttt{gamma} & \texttt{C} fija cuánto se penaliza cada error y \texttt{kernel} decide si la frontera puede ser curva; ambos operan sobre distancias, y por tanto dependen del escalado previo \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{Una limitación declarada, no un error.} \texttt{GaussianNB} asume que cada variable, condicionada a la clase, sigue una distribución normal. Medida sobre el dataset de modelado, la asimetría llega a \textbf{10.56 en \texttt{Sgot} sobre las 570 filas deduplicadas (10.55 en la Actividad 1, sobre las 583 originales)} y a \textbf{6.70} en \texttt{Sgpt} (0 sería simetría perfecta): \textbf{el supuesto se viola abiertamente}. No se sustituye el modelo ---es uno de los cinco que el enunciado exige--- y que resulte el peor de los cinco es, en sí mismo, evidencia de cuánto cuesta ese incumplimiento.
+
+\textbf{Sensibilidad al escalado: la base teórica de la sección 5.} Son \textbf{sensibles} la regresión logística (la regularización penaliza según la magnitud de cada coeficiente), KNN (la distancia euclídea queda dominada por la variable de mayor rango) y SVM (el margen y el \textit{kernel} se calculan sobre distancias). Son \textbf{insensibles} Naive Bayes (estima media y varianza de cada variable por separado) y el árbol (cada partición compara una variable contra un umbral, y \textbf{escalar no cambia el orden} de los valores, que es lo único que determina la partición).
+
+\textbf{Cuánta redundancia hay que contener.} \texttt{A/G Ratio} se calcula como \texttt{ALB / (TP $-$ ALB)}: las tres variables están ligadas por una identidad algebraica, no por una relación empírica. El VIF (\textit{variance inflation factor}) mide cuánto se infla la varianza del coeficiente de una variable por su colinealidad con las demás; por encima de 5 suele considerarse señal de alerta. \textbf{\texttt{ALB} alcanza 8.99 y \texttt{TP} 5.08}, ambas por encima del umbral. Lo que \textbf{no} confirma la intuición ingenua: \textbf{\texttt{A/G Ratio} (3.39) no es la variable con mayor VIF del grupo}. Tiene sentido ---es un cociente, una relación \textit{no lineal}, y el VIF solo mide colinealidad lineal: no hereda toda la dependencia de sus componentes---. Es la razón concreta por la que \texttt{C}, la regularización, es el hiperparámetro que más importa en la regresión logística de este dataset.
+
+\textbf{La selección de variables va dentro del \textit{pipeline}.} Con nueve variables numéricas la selección no es una necesidad de dimensionalidad sino de control de redundancia. Lo decisivo es \textbf{dónde} se hace: un selector ajustado sobre el dataset completo antes de la validación cruzada ya vio las etiquetas de las filas que después harán de validación, y produce métricas optimistas ---uno de los sesgos mejor documentados de la literatura (Ambroise \& McLachlan, 2002). Aquí es un paso más del \textit{pipeline}, que se reajusta en cada pliegue. \textbf{La prueba de que efectivamente se reajusta: los cinco pliegues no eligen el mismo subconjunto de variables.}
+
+\textbf{¿Entra \texttt{Gender} como variable del modelo?} Es la pregunta central de un proyecto de equidad, así que se ejecutaron \textbf{ambas variantes}. Las diferencias en \texttt{balanced\_accuracy} de validación cruzada van de \textbf{$-$0.0032 a $+$0.0038}, un rango indistinguible del ruido. Se adopta la variante \textbf{sin \texttt{Gender}} como oficial. Conviene no leerlo como que el sesgo desaparece: la sección 6 mide que \textbf{no desaparece}.
+
+\subsection{Búsqueda de hiperparámetros (T5)}
+
+\textit{¿Cómo encontraste los mejores hiperparámetros? Grid Search o Random Search.}
+
+\textbf{Grid Search} (\texttt{GridSearchCV}), no Random Search. Con rejillas de este tamaño la búsqueda exhaustiva es asequible, y ser exhaustiva la hace reproducible sin depender de una semilla de muestreo. El espacio total es de \textbf{201 configuraciones por variante}: 30 en regresión logística, 36 en KNN, 9 en Naive Bayes, 90 en el árbol y 36 en SVM, contando los tres valores de \texttt{k} del selector.
+
+\textbf{Las rejillas viven en \texttt{params.yaml}}, no en el cuaderno: dos ejecuciones cualesquiera del proyecto buscan sobre exactamente el mismo espacio. \textbf{La validación cruzada es estratificada} (5 pliegues) \textbf{y corre solo sobre entrenamiento}; estratificada y no simple porque cada pliegue necesita conservar la proporción 2.49:1 para que SMOTE tenga minoría suficiente. \textbf{El \texttt{k} del selector se optimiza dentro de la misma búsqueda}: es un hiperparámetro más.
+
+\textbf{La decisión de más consecuencia de toda la actividad: qué métrica se maximiza.} Como la clase positiva es la mayoritaria, se mide primero qué consigue el clasificador que responde ``enfermo'' a todo el mundo. Sobre entrenamiento: accuracy \textbf{0.7127}, recall \textbf{1.0000}, precisión \textbf{0.7127}, \textbf{F1 0.8323} y \textbf{balanced accuracy 0.5000}.
+
+\textbf{Optimizar F1 habría sido un error.} El clasificador que no aprende nada obtiene F1 = 0.8323; ningún modelo honesto que además intente acertar en los sanos va a superarlo, porque acertar en los sanos exige dejar de predecir ``enfermo'' siempre y eso baja el recall de la clase enferma. Buscar hiperparámetros que maximicen F1 habría seleccionado, sistemáticamente, al modelo más parecido al degenerado. \textbf{Se optimiza \texttt{balanced\_accuracy}}, cuyo suelo es 0.5000 en cualquier reparto de clases. Las cuatro métricas del enunciado se siguen reportando íntegramente: \textbf{cambia el criterio de selección, no lo que se informa}.
+
+\begin{table}[H]
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l c X@{}}
+\toprule
+\textbf{Modelo} & \textbf{\texttt{balanced\_accuracy} (CV)} & \textbf{Mejores hiperparámetros} \\
+\midrule
+\textbf{Regresión logística} & \textbf{0.7234} & \texttt{C}: 0.1 $\cdot$ \texttt{solver}: saga $\cdot$ \texttt{k}: 10 \\
+SVM & 0.7126 & \texttt{C}: 1 $\cdot$ \texttt{gamma}: scale $\cdot$ \texttt{kernel}: linear $\cdot$ \texttt{k}: 7 \\
+Naive Bayes & 0.7015 & \texttt{var\_smoothing}: 1e-11 $\cdot$ \texttt{k}: 7 \\
+KNN & 0.6713 & \texttt{n\_neighbors}: 5 $\cdot$ \texttt{weights}: distance $\cdot$ \texttt{k}: 7 \\
+Árbol de decisión & 0.6687 & \texttt{criterion}: entropy $\cdot$ \texttt{max\_depth}: 3 $\cdot$ \texttt{min\_samples\_leaf}: 10 $\cdot$ \texttt{k}: 10 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Los cinco superan el suelo de 0.50 por un margen claro. \textbf{El ganador queda declarado aquí, antes de tocar el conjunto de prueba.}
+
+% =====================================================================
+\section{Métricas y evaluación comparativa (T6, T7)}
+
+\subsection{Qué métricas y por qué (T6)}
+
+\textit{¿Qué métricas seleccionaste (accuracy, precisión, recall, F1) y por qué?}
+
+Antes de reportar un número hay que fijar qué significa cada error \textbf{en pacientes}, porque es lo que decide qué métrica importa:
+
+\begin{itemize}
+\item \textbf{Falso negativo (FN)} --- el modelo dice ``sano'' a un paciente que \textbf{sí está enfermo}. Ese paciente \textbf{se va a casa sin tratamiento} y la enfermedad sigue avanzando sin que nadie la vigile. En una enfermedad que avanza durante años sin síntomas, es el error caro.
+\item \textbf{Falso positivo (FP)} --- el modelo dice ``enfermo'' a un paciente sano. Genera \textbf{una prueba de confirmación de más}, con su coste y su ansiedad, pero es \textbf{recuperable}: un estudio de seguimiento lo corrige.
+\end{itemize}
+
+Los costes \textbf{no son simétricos}, y en cribado el error caro es el primero. Con eso fijado, cada métrica responde una pregunta distinta:
+
+\begin{table}[H]
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Métrica} & \textbf{Qué responde} & \textbf{Por qué no basta \textit{aquí}} \\
+\midrule
+\textbf{Accuracy} & ¿qué fracción de todos los pacientes clasifiqué bien? & Con 71\% de enfermos, responder ``enfermo'' a todos da 0.71 sin aprender nada \\
+\textbf{Precisión} & cuando digo ``enfermo'', ¿cuántas veces acierto? & Se maximiza siendo extremadamente conservador: diagnosticar solo los casos evidentes \\
+\textbf{Recall} (sensibilidad) & de todos los enfermos reales, ¿a cuántos detecté? & Se maximiza diciendo ``enfermo'' a todo el mundo: recall 1.00 y cero valor clínico \\
+\textbf{F1} & ¿equilibro precisión y recall? & El clasificador degenerado saca 0.83, porque su recall perfecto compensa su precisión mediocre \\
+\textbf{Balanced accuracy} & ¿acierto en \textbf{ambas} clases? & Es la única cuyo suelo (0.50) no depende del desbalance \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Se reportan \textbf{las cuatro que pide el enunciado más balanced accuracy}, con \texttt{average='binary'} y \texttt{pos\_label=1} declarados explícitamente porque cambiar ese valor cambiaría todos los números. \textbf{El suelo sobre el conjunto de prueba real} (114 pacientes): accuracy \textbf{0.7105} $\cdot$ recall \textbf{1.0000} $\cdot$ precisión \textbf{0.7105} $\cdot$ F1 \textbf{0.8308} $\cdot$ balanced accuracy \textbf{0.5000}.
+
+\subsection{La tabla comparativa (T7)}
+
+\textit{¿Cómo evaluaste el rendimiento de cada modelo? Tabla comparativa.}
+
+Los cinco modelos, con sus hiperparámetros ya fijados por Grid Search sobre entrenamiento, se evaluaron \textbf{una sola vez} sobre el conjunto de prueba congelado de 114 pacientes. \textbf{La fila del clasificador nulo forma parte de la tabla}: sin ella la comparación no se entiende.
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{@{}p{1.6cm} X p{2.7cm} p{3.4cm} c@{}}
+\toprule
+\textbf{Modelo} & \textbf{Hiperparámetros y cuadrícula de búsqueda} & \textbf{Hiperparámetros de mejor rendimiento} & \textbf{Métricas de mejor rendimiento} & \textbf{Bal. acc.} \\
+\midrule
+Regresión logística & \texttt{C}: [0.01, 0.1, 1, 10, 100] $\cdot$ \texttt{solver}: ['liblinear', 'saga'] & \texttt{C}: 0.1 $\cdot$ \texttt{solver}: saga $\cdot$ \texttt{k}: 10 & Accuracy: 0.5789 $\cdot$ Precisión: 0.8837 $\cdot$ Recall: 0.4691 $\cdot$ F1: 0.6129 & 0.6588 \\
+KNN & \texttt{n\_neighbors}: [3, 5, 7, 9, 11, 15] $\cdot$ \texttt{weights}: ['uniform', 'distance'] & \texttt{n\_neighbors}: 5 $\cdot$ \texttt{weights}: distance $\cdot$ \texttt{k}: 7 & Accuracy: 0.6316 $\cdot$ Precisión: 0.8197 $\cdot$ Recall: 0.6173 $\cdot$ F1: 0.7042 & 0.6420 \\
+Naive Bayes & \texttt{var\_smoothing}: [1e-11, 1e-09, 1e-07] & \texttt{var\_smoothing}: 1e-11 $\cdot$ \texttt{k}: 7 & Accuracy: 0.5526 $\cdot$ Precisión: 0.9688 $\cdot$ Recall: 0.3827 $\cdot$ F1: 0.5487 & 0.6762 \\
+Árbol de decisión & \texttt{max\_depth}: [3, 5, 7, 10, None] $\cdot$ \texttt{min\_samples\_leaf}: [1, 5, 10] $\cdot$ \texttt{criterion}: ['gini', 'entropy'] & \texttt{criterion}: entropy $\cdot$ \texttt{max\_depth}: 3 $\cdot$ \texttt{min\_samples\_leaf}: 10 $\cdot$ \texttt{k}: 10 & Accuracy: 0.5789 $\cdot$ Precisión: 0.9231 $\cdot$ Recall: 0.4444 $\cdot$ F1: 0.6000 & 0.6768 \\
+SVM & \texttt{C}: [0.1, 1, 10] $\cdot$ \texttt{kernel}: ['linear', 'rbf'] $\cdot$ \texttt{gamma}: ['scale', 'auto'] & \texttt{C}: 1 $\cdot$ \texttt{gamma}: scale $\cdot$ \texttt{kernel}: linear $\cdot$ \texttt{k}: 7 & Accuracy: 0.5614 $\cdot$ Precisión: 0.9697 $\cdot$ Recall: 0.3951 $\cdot$ F1: 0.5614 & 0.6824 \\
+\midrule
+\textbf{Clasificador nulo} (``siempre enfermo'') & --- & --- & Accuracy: 0.7105 $\cdot$ Precisión: 0.7105 $\cdot$ Recall: 1.0000 $\cdot$ F1: 0.8308 & \textbf{0.5000} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{Cómo hay que leer esta tabla.} Los cinco modelos quedan \textbf{por debajo del clasificador nulo en accuracy y en F1}. No es una derrota: es la consecuencia aritmética de haber optimizado \texttt{balanced\_accuracy} en lugar de F1. El nulo ``gana'' en esas dos métricas \textbf{precisamente porque nunca predice ``sano''}: tiene recall perfecto sobre los enfermos a costa de no distinguir absolutamente nada. La columna de balanced accuracy es la que separa: los cinco modelos están entre \textbf{0.6420 y 0.6824}, y el nulo en \textbf{0.5000 exacto}. Los modelos aprendieron algo que el nulo no puede alcanzar por construcción.
+
+\subsection{Las matrices de confusión, leídas en pacientes}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.72\textwidth]{act2_t7_confusion.png}
+\caption{Modelo ganador frente al clasificador nulo sobre los 114 pacientes de prueba.}
+\end{figure}
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}l r r r r r@{}}
+\toprule
+\textbf{Modelo} & \textbf{Detectados (TP)} & \textbf{Sin detectar (FN)} & \textbf{Sanos OK (TN)} & \textbf{Falsos pos. (FP)} & \textbf{\% sin detectar} \\
+\midrule
+\textbf{Regresión logística} & 38 & \textbf{43} & 28 & 5 & \textbf{53.1\%} \\
+KNN & 50 & 31 & 22 & 11 & 38.3\% \\
+Naive Bayes & 31 & 50 & 32 & 1 & 61.7\% \\
+Árbol de decisión & 36 & 45 & 30 & 3 & 55.6\% \\
+SVM & 32 & 49 & 32 & 1 & 60.5\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Dicho sin suavizar: a umbral 0.5 el modelo ganador deja pasar 43 de los 81 enfermos del conjunto de prueba, el 53\%.} Como cribado tal cual, no sirve. Esa frase es el resultado honesto de la evaluación, y la sección siguiente explica por qué eso no equivale a decir que el modelo no discrimine.
+
+\subsection{El umbral de decisión es la decisión de primer orden}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.68\textwidth]{act2_t7_umbral.png}
+\caption{Curva de umbral del modelo ganador, sobre validación cruzada en entrenamiento.}
+\end{figure}
+
+Un clasificador no devuelve ``enfermo/sano'': devuelve \textbf{una probabilidad}, y alguien decide a partir de qué valor se actúa. Ese umbral ---fijado por convención en 0.5--- es una decisión de producto que determina cuántos enfermos se dejan sin detectar. Se explora \textbf{sobre validación cruzada en entrenamiento}, nunca sobre el conjunto de prueba:
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}c r r r r r@{}}
+\toprule
+\textbf{Umbral} & \textbf{Accuracy} & \textbf{Precisión} & \textbf{Recall} & \textbf{F1} & \textbf{Balanced accuracy} \\
+\midrule
+\textbf{0.20} & 0.7105 & 0.7121 & \textbf{0.9969} & \textbf{0.8308} & \textbf{0.4985} \\
+0.30 & 0.7127 & 0.7354 & \textbf{0.9323} & 0.8223 & 0.5501 \\
+0.40 & 0.6930 & 0.8073 & 0.7477 & 0.7764 & 0.6525 \\
+\textbf{0.50} (oficial) & 0.6711 & 0.9070 & 0.6000 & 0.7222 & \textbf{0.7237} \\
+0.60 & 0.5965 & 0.9608 & 0.4523 & 0.6151 & 0.7033 \\
+0.70 & 0.5285 & 0.9741 & 0.3477 & 0.5125 & 0.6624 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{La fila de 0.20 es el argumento más instructivo de todo el informe.} A ese umbral el modelo alcanza F1 = \textbf{0.8308}, que es \textbf{exactamente el F1 del clasificador nulo}. No es coincidencia: a 0.20 el modelo \textit{reproduce} al clasificador nulo, diciendo ``enfermo'' a prácticamente todos. Su balanced accuracy cae a 0.4985, \textbf{por debajo del azar}. Dicho de otro modo: \textbf{en este dataset un F1 de 0.83 solo se alcanza degenerando}, y la tabla de la sección 4.2 debe leerse con eso presente.
+
+En el otro extremo, \textbf{a umbral 0.30 el recall sube a 0.9323}: el modelo detectaría el 93\% de los enfermos, a costa de bajar la precisión a 0.7354 ---más pruebas de confirmación innecesarias---. Ese es el intercambio real que un cribado tendría que decidir. El umbral \textbf{oficial de la tabla comparativa es 0.5}, comparable entre los cinco modelos, que es lo que el enunciado pide; el punto de 0.30 queda registrado como insumo de discusión explícito, \textbf{no adoptado en silencio}.
+
+\subsection{Cuánta de la diferencia entre modelos es ruido}
+
+\textbf{El ganador por validación cruzada no es el mejor sobre el conjunto de prueba}: SVM saca 0.6824 de balanced accuracy frente a 0.6588 de la regresión logística. Con $n=114$, ¿significa algo? Los intervalos de confianza \textit{bootstrap} dicen que no: la regresión logística obtiene \textbf{0.6588 con IC 95\% [0.5721, 0.7361]} y SVM \textbf{0.6824 con [0.6212, 0.7436]}. \textbf{Los intervalos se solapan ampliamente}: la diferencia es ruido de muestreo, no evidencia de que un modelo sea mejor. Cambiar de ganador a la vista de este resultado sería precisamente el error que congelar el conjunto de prueba pretende evitar.
+
+\textbf{Una verificación adicional de integridad.} La caída media entre lo que predijo la validación cruzada y lo que ocurrió sobre el conjunto de prueba es de \textbf{$-$2.8 pp} (de $-$6.5 pp en la regresión logística a $+$0.8 pp en el árbol). Una brecha de ese tamaño ---unos pocos puntos, no veinte o treinta--- es la que se espera de un \textit{pipeline} sin fuga de datos.
+
+% =====================================================================
+\section{Impacto de la normalización y el balanceo (T8)}
+
+\textit{¿Qué impacto tuvo la normalización (MinMax o Z-Score) y el balanceo en las métricas?}
+
+Experimento factorial completo: \textbf{\{MinMax, Z-Score\} $\times$ \{con SMOTE, sin SMOTE\} $\times$ 5 modelos = 20 configuraciones}. Dos precauciones de diseño: \textbf{las 20 celdas se comparan por validación cruzada sobre entrenamiento, nunca sobre el conjunto de prueba} (evaluar 20 configuraciones contra la prueba y quedarse con la mejor sería sobreajustarla), y \textbf{los hiperparámetros se congelan} en los que la sección 3.2 encontró (reajustarlos dentro de cada celda confundiría el efecto del preprocesamiento con el de volver a ajustar, y la tarea pregunta exactamente por el primero, aislado).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.76\textwidth]{act2_t8_factorial.png}
+\caption{\texttt{balanced\_accuracy} de las 20 configuraciones, por validación cruzada sobre entrenamiento.}
+\end{figure}
+
+\subsection{El hallazgo central: tres celdas que no aprendieron nada}
+
+Una \texttt{balanced\_accuracy} de \textbf{0.5000 exacto} es sospechosa. Comprobado con las \textbf{predicciones reales}, no inferido de la métrica: \textbf{regresión logística} bajo MinMax sin SMOTE, y \textbf{SVM} bajo MinMax y bajo Z-Score sin SMOTE, predicen \textbf{siempre ``enfermo''} y marcan como enfermos a los \textbf{131 de 131} pacientes sanos de entrenamiento.
+
+\textbf{Sin balanceo, 2 de los 5 algoritmos que el enunciado exige no aprenden absolutamente nada} bajo al menos una combinación de escalador: responden ``enfermo'' a los 456 pacientes de entrenamiento sin una sola excepción. \textbf{Eso, y no una diferencia decimal entre escaladores, es la respuesta a esta tarea.} El balanceo no es un ajuste fino de un par de puntos porcentuales: es la diferencia entre tener un clasificador y no tenerlo.
+
+\subsection{Cuánto pesa cada factor}
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}l l r r@{}}
+\toprule
+\textbf{Factor} & \textbf{Nivel} & \textbf{\texttt{balanced\_accuracy} media} & \textbf{Efecto} \\
+\midrule
+\textbf{Balanceo} & sin SMOTE $\rightarrow$ con SMOTE & 0.5850 $\rightarrow$ 0.6762 & \textbf{$+$0.0913} \\
+\textbf{Escalado} & MinMax $\rightarrow$ Z-Score & 0.6183 $\rightarrow$ 0.6429 & \textbf{$+$0.0247} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{El balanceo pesa unas cuatro veces más que el escalado.} Y los dos factores \textbf{interactúan}: SMOTE aporta $+$0.0775 bajo MinMax y $+$0.1051 bajo Z-Score.
+
+\subsection{Por qué el escalado afecta a unos modelos y no a otros}
+
+El mecanismo es el de la sección 3.1: \textbf{distancias frente a particiones}. Se verifica midiendo la diferencia $|$MinMax $-$ Z-Score$|$ celda por celda:
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}l r r@{}}
+\toprule
+\textbf{Modelo} & \textbf{Sin SMOTE} & \textbf{Con SMOTE} \\
+\midrule
+Naive Bayes & 0.000000 & 0.000000 \\
+Árbol de decisión & 0.000000 & \textbf{0.020427} \\
+Regresión logística & 0.018034 & 0.067892 \\
+KNN & 0.036154 & 0.050969 \\
+SVM & 0.000000 & 0.053219 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{El resultado más fino del experimento está en la celda marcada.} El árbol de decisión es invariante al escalado sin SMOTE, como predice la teoría --- pero \textbf{con SMOTE deja de serlo}. No es un error del montaje: \textbf{SMOTE elige vecinos por distancia euclídea}, así que bajo MinMax y bajo Z-Score genera pacientes sintéticos \textbf{distintos}. El árbol sigue siendo insensible a la escala; lo que no es invariante es el paso que va inmediatamente antes. Un preprocesamiento puede \textbf{propagar su sensibilidad a la escala hacia un modelo que en sí mismo no la tiene}.
+
+\textbf{La predicción sobre MinMax se cumple.} La Actividad 1 documentó que MinMax divide por \texttt{max $-$ min}, un denominador fijado por \textbf{dos pacientes}; con colas largas eso aplasta a la mayoría contra el cero. Medianas escaladas de las cinco variables más asimétricas: \texttt{Sgot} 0.0061 $\cdot$ \texttt{TB} 0.0067 $\cdot$ \texttt{DB} 0.0102 $\cdot$ \texttt{Sgpt} 0.0131 $\cdot$ \texttt{Alkphos} 0.0738. \textbf{Todas en el primer 7.4\% del rango.}
+
+\subsection{Qué hace SMOTE con las métricas}
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}l r r r@{}}
+\toprule
+\textbf{Balanceo} & \textbf{Recall} & \textbf{Precisión} & \textbf{F1} \\
+\midrule
+Sin SMOTE & 0.7988 & 0.7896 & 0.7643 \\
+Con SMOTE & 0.5535 & 0.8819 & 0.6722 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Leído sin contexto, SMOTE \textbf{baja el recall}, que es justo la métrica que más importa en cribado. Pero buena parte de ese recall alto sin SMOTE viene de las celdas degeneradas, que lo consiguen sin distinguir a nadie: \textbf{excluyéndolas, el recall sin SMOTE baja de 0.7988 a 0.7125}. El intercambio es real, pero mucho menor de lo que la cifra bruta sugiere, y a cambio la precisión sube de 0.7896 a 0.8819.
+
+\textbf{Para un cribado esto no es mala noticia.} Un modelo con sensibilidad perfecta y especificidad cero no criba nada: manda a todos los pacientes, sanos y enfermos, a la misma vía de seguimiento. El valor de un cribado está en reducir el volumen que necesita confirmación \textbf{sin dejar pasar enfermos}, y eso exige equilibrar ambos errores. Dicho esto, el recall de 0.55 con SMOTE al umbral 0.5 sigue dejando sin detectar a demasiados enfermos --- \textbf{el balanceo y el umbral son dos palancas distintas}, y esta tarea solo mueve la primera.
+
+\subsection{Análisis de sensibilidad}
+
+La sección 2.1 decidió conservar e imputar las 3 filas con \texttt{DB} $>$ \texttt{TB} en lugar de eliminarlas. Repetido el mejor modelo sin ellas, la \texttt{balanced\_accuracy} de validación cruzada pasa de 0.7234 a 0.7115: \textbf{una diferencia de 0.0119}, pequeña frente a la variación entre pliegues de la propia validación cruzada. \textbf{La conclusión no depende de esa decisión.}
+
+% =====================================================================
+\section{Auditoría de equidad por sexo}
+
+\begin{quote}
+Esta sección \textbf{no corresponde a ninguna de las ocho tareas}. Se incluye porque el enunciado señala a Straw \& Wu (2022) como lectura de referencia, y ese trabajo documenta sesgo por sexo sobre \textbf{este mismo dataset}. Medir una brecha y no contrastarla con el único estudio que el enunciado señala sería dejar pasar lo evidente.
+\end{quote}
+
+\textbf{Por qué no se usa la división única.} El conjunto de prueba tiene 28 mujeres, 10 de ellas sanas: una tasa de falsos negativos femenina calculada sobre $\sim$10 personas se movería 10 puntos con una sola predicción distinta. Se usan en cambio predicciones \textit{out-of-fold} de una \textbf{validación cruzada estratificada repetida} (5 pliegues $\times$ 10 repeticiones) sobre las 456 filas de entrenamiento, que aporta \textbf{112 mujeres, 73 de ellas enfermas}.
+
+\textbf{La resolución del experimento se declaró antes de ver el resultado}, para no ajustar el listón a lo que saliera: con 73 mujeres enfermas y 252 hombres enfermos, \textbf{una brecha menor de $\pm$13.0 pp no sería distinguible del ruido}.
+
+\subsection{El resultado}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.50\textwidth]{act2_f9_fnr_sexo.png}
+\caption{Enfermos no detectados por sexo, sobre predicciones \textit{out-of-fold}.}
+\end{figure}
+
+La \textbf{tasa de falsos negativos es del 54.8\% en mujeres} (73 enfermas) \textbf{frente al 35.7\% en hombres} (252 enfermos). \textbf{Brecha: $+$19.08 pp}, con IC 95\% \textit{bootstrap} de \textbf{[$+$5.6, $+$31.8] pp} ---que \textbf{excluye el cero}--- y \textbf{test exacto de Fisher $p = 0.0043$}.
+
+En términos concretos: \textbf{de cada 100 mujeres enfermas de esta muestra, unas 55 se irían a casa sin diagnóstico bajo este modelo, frente a unos 36 de cada 100 hombres enfermos.}
+
+La brecha \textbf{supera la resolución declarada de antemano}, así que ---a diferencia de la brecha de diagnóstico que la Actividad 1 midió sobre los datos crudos, donde $p = 0.055$ y el intervalo cruzaba el cero--- \textbf{esta sí es distinguible del ruido}. El sesgo medido antes de entrenar llega al modelo entrenado.
+
+\subsection{Dos controles de robustez}
+
+\begin{enumerate}
+\item \textbf{No es el artefacto de una partición concreta.} La brecha aparece con el mismo signo en \textbf{las 10 repeticiones por separado}, en un rango de \textbf{[$+$17.3, $+$23.6] pp}.
+\item \textbf{No la fabrica una decisión de diseño de esta sección.} El modelo auditado tiene 11 variables por efecto de un blindaje técnico del selector, no las 10 que la búsqueda eligió. Repitiendo el análisis con el selector sin blindar ---el modelo real de la sección 4--- la brecha es \textbf{$+$20.45 pp con $p = 0.0027$}: de magnitud comparable o mayor. \textbf{El blindaje es conservador; no infla el resultado.}
+\end{enumerate}
+
+\subsection{Qué pasa con SMOTE y con \texttt{Gender}}
+
+\begin{table}[H]
+\footnotesize
+\centering
+\begin{tabular}{@{}l r r r r@{}}
+\toprule
+\textbf{Variante} & \textbf{FNR mujeres} & \textbf{FNR hombres} & \textbf{Brecha} & \textbf{$p$ (Fisher)} \\
+\midrule
+Sin \texttt{Gender}, \textbf{con SMOTE} (oficial) & 0.5479 & 0.3571 & \textbf{$+$19.08 pp} & \textbf{0.0043} \\
+Sin \texttt{Gender}, sin SMOTE & 0.0548 & 0.0317 & $+$2.30 pp & 0.478 \\
+Con \texttt{Gender}, con SMOTE & 0.5205 & 0.3571 & $+$16.34 pp & 0.0143 \\
+Con \texttt{Gender}, sin SMOTE & 0.0548 & 0.0238 & $+$3.10 pp & 0.240 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Las filas ``sin SMOTE'' tienen brecha pequeña, y eso no es una buena noticia.} Hay que mirar su FNR \textbf{absoluta}: cae a $\sim$5\% en ambos sexos. No es que el modelo sea equitativo, es que \textbf{casi no predice ``sano'' para nadie} --- es la misma degeneración de la sección 5.1, vista desde el otro lado. Un clasificador que no discrimina a nadie tampoco discrimina \textit{entre} grupos, y presentarlo como equidad sería un error de lectura.
+
+\textbf{Quitar \texttt{Gender} no resuelve el sesgo.} Con la variable, la brecha es $+$16.34 pp; sin ella, $+$19.08 pp. Son magnitudes comparables, y en ambos casos significativas. El sesgo \textbf{no llega por la columna \texttt{Gender}}, sino por variables correlacionadas con el sexo: la Actividad 1 ya documentó que los umbrales de referencia de ALT y los cuartiles de detección de atípicos están calibrados sobre una muestra 75.6\% masculina.
+
+\subsection{Contraste con Straw \& Wu (2022)}
+
+Straw \& Wu auditaron modelos entrenados sobre el ILPD y hallaron tasas de falsos negativos consistentemente peores en mujeres, \textbf{hasta $-$24.07 pp} en regresión logística. Tres precisiones, sin las cuales la comparación se leería mal:
+
+\begin{enumerate}
+\item \textbf{Es corroboración de dirección, no replicación.} Ellos usaron otra metodología; aquí se usó validación cruzada repetida \textit{out-of-fold} sobre entrenamiento, con SMOTE, selector blindado y selección por \texttt{balanced\_accuracy}. Mismo dataset y misma dirección, \textbf{distinto experimento}. No se reproduce su hallazgo: se corrobora su sentido.
+\item \textbf{Las magnitudes no coinciden.} Ellos reportan hasta $-$24.07 pp; aquí, $+$19.08 pp. Los signos difieren por convención ---ambos significan ``peor para las mujeres''--- y \textbf{la magnitud medida aquí es menor}. Misma dirección, magnitud algo menor.
+\item \textbf{El paralelismo que sí vale señalar:} su hallazgo fue en \textbf{regresión logística}, que es exactamente el modelo ganador de este trabajo.
+\end{enumerate}
+
+\subsection{Los límites de esta auditoría}
+
+\textbf{Se hizo sobre entrenamiento, vía validación cruzada, no sobre datos nunca vistos por el proceso de modelado en su conjunto.} Cada predicción individual proviene de un pliegue que no vio esa fila, pero el conjunto de entrenamiento sí participó en el ajuste de hiperparámetros. Es el precio correcto de no gastar el conjunto de prueba dos veces ---se gastó una sola vez, en la sección 4--- pero \textbf{no equivale a una evaluación sobre un conjunto independiente}, y no debe presentarse como tal.
+
+% =====================================================================
+\section{Limitaciones y conclusiones}
+
+\subsection{Limitaciones}
+
+\textbf{Ausencia de etiología.} No se registran alcohol ni hepatitis viral. Solo puede aprenderse la firma bioquímica del daño, \textbf{nunca su causa}. Es también la razón por la que los objetivos del enunciado que mencionan esas variables no pueden abordarse.
+
+\textbf{\texttt{Selector} es una etiqueta indirecta.} El modelo aprende a reproducir el criterio de quien diagnosticó en un hospital concreto, con sus sesgos. Una variable que ``separa bien'' puede estar reflejando en qué se fijó el especialista, no qué mide el daño.
+
+\textbf{El conjunto de prueba es pequeño.} Con 114 pacientes, los intervalos de confianza tienen varios puntos de ancho: la sección 4.5 muestra dos modelos indistinguibles pese a separarse 2.4 puntos. \textbf{Ninguna diferencia de un par de puntos entre modelos debe leerse como una ventaja real.}
+
+\textbf{El rendimiento absoluto es bajo para uso clínico.} El mejor modelo alcanza balanced accuracy 0.6588 sobre prueba y, al umbral por defecto, deja pasar el 53\% de los enfermos. Discrimina mejor que el azar, pero \textbf{no es una herramienta de cribado utilizable tal cual}.
+
+\textbf{Limitaciones heredadas de la Actividad 1} que siguen vigentes: \textit{age heaping} (índice de Whipple 163.3) y censura de la edad en 90, que impiden cualquier análisis etario fino; y rangos de referencia procedentes de poblaciones no locales.
+
+\textbf{Una divergencia deliberada respecto de la Actividad 1}, declarada: allí se conservaron los 13 duplicados, aquí se eliminan. No es una contradicción sino un cambio de criterio motivado por un cambio de riesgo, documentado en la sección 2.1.
+
+\subsection{Conclusiones}
+
+\textbf{Sobre la preparación de los datos.} Las decisiones que más protegen el resultado no son las más visibles: deduplicar antes de dividir (5 de 13 pares habrían quedado repartidos), meter todo el preprocesamiento dentro del \textit{pipeline}, y distinguir entre operaciones fila a fila y estadísticas de grupo. Ninguna mejora una métrica; todas evitan que las métricas mientan.
+
+\textbf{Sobre la elección de la métrica.} Es la decisión de más consecuencia de toda la actividad. Con la clase positiva siendo la mayoritaria, \textbf{F1 y accuracy están saturadas por un clasificador que no aprende nada}, y optimizarlas habría premiado sistemáticamente al modelo más degenerado. La prueba más clara está en la curva de umbral: el único punto donde el modelo iguala el F1 del clasificador nulo es aquel en el que \textbf{lo reproduce}.
+
+\textbf{Sobre el modelado.} El ganador por validación cruzada es la regresión logística (\texttt{balanced\_accuracy} 0.7234). Los cinco modelos superan el suelo del azar en balanced accuracy y quedan por debajo del nulo en accuracy y F1 --- consecuencia esperada y explicada, no una regresión. \textbf{Lo que determina si el modelo es utilizable no es el algoritmo sino el punto de operación}: el umbral de 0.30 llevaría el recall a 0.93 a costa de precisión, y esa es la discusión que un despliegue real tendría que tener.
+
+\textbf{Sobre el preprocesamiento (T8).} El balanceo pesa unas cuatro veces más que el escalado, pero la cifra promedio esconde lo importante: \textbf{sin balanceo, 2 de los 5 algoritmos exigidos colapsan a predecir una sola clase}. Además, el experimento reveló algo no anticipado: \textbf{SMOTE propaga su propia sensibilidad a la escala hacia modelos que no la tienen}, porque elige vecinos por distancia euclídea.
+
+\textbf{Sobre la equidad.} La brecha de \textbf{$+$19.08 pp} en la tasa de falsos negativos entre mujeres y hombres es \textbf{estadísticamente distinguible del ruido} (IC 95\% [$+$5.6, $+$31.8], $p = 0.0043$), supera la resolución declarada de antemano y sobrevive a dos controles de robustez. Va en \textbf{la misma dirección que Straw \& Wu, con magnitud algo menor}. Y \textbf{quitar \texttt{Gender} del modelo no la resuelve}: el sesgo llega por variables correlacionadas.
+
+\textbf{Lo que este trabajo aporta más allá del enunciado.} La Actividad 1 concluyó que un pipeline de datos aparentemente neutro puede introducir sesgo por sexo \textbf{antes de entrenar modelo alguno}. Esta actividad cierra el argumento midiendo el otro extremo: \textbf{ese sesgo no se queda en los datos --- llega al modelo entrenado, y llega en magnitud medible y significativa.} Un modelo puede ser correcto en cada paso de su construcción y aun así repartir sus errores de forma desigual entre subgrupos; solo desagregando las métricas se ve.
+
+% =====================================================================
+\section*{Referencias}
+\addcontentsline{toc}{section}{Referencias}
+\small
+\begin{itemize}
+\item Straw, I. \& Wu, H. (2022). \textit{Investigating for bias in healthcare algorithms: a sex-stratified analysis of supervised machine learning models in liver disease prediction}. BMJ Health Care Inform, 29(1). DOI 10.1136/bmjhci-2021-100457
+\item Chawla, N. V., Bowyer, K. W., Hall, L. O. \& Kegelmeyer, W. P. (2002). \textit{SMOTE: Synthetic Minority Over-sampling Technique}. JAIR, 16, 321--357. DOI 10.1613/jair.953
+\item Ambroise, C. \& McLachlan, G. J. (2002). \textit{Selection bias in gene extraction on the basis of microarray gene-expression data}. PNAS, 99(10), 6562--6566. DOI 10.1073/pnas.102162699
+\item Prati, D. et al. (2002). \textit{Updated definitions of healthy ranges for serum alanine aminotransferase levels}. Annals of Internal Medicine, 137(1). DOI 10.7326/0003-4819-137-1-200207020-00006
+\item Ramana, B. V. \& Venkateswarlu, N. B. \textit{ILPD (Indian Liver Patient Dataset)}. UCI Machine Learning Repository. DOI 10.24432/C5D02C
+\item Pedregosa, F. et al. (2011). \textit{Scikit-learn: Machine Learning in Python}. JMLR, 12, 2825--2830.
+\item Lemaître, G., Nogueira, F. \& Aridas, C. K. (2017). \textit{Imbalanced-learn: A Python Toolbox to Tackle the Curse of Imbalanced Datasets in Machine Learning}. JMLR, 18(17), 1--5.
+\end{itemize}
+\normalsize
+
+% =====================================================================
+\section*{Material complementario}
+\addcontentsline{toc}{section}{Material complementario}
+
+Por el límite de extensión, este informe presenta los resultados y su interpretación, no el desarrollo completo. El repositorio contiene el trabajo íntegro, reproducible de principio a fin:
+
+\begin{center}
+\url{https://github.com/hatlpm/liver-disease-fairness}
+\end{center}
+
+\begin{table}[H]
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+\textbf{Qué contiene} & \textbf{Por qué puede interesar} \\
+\midrule
+\texttt{notebooks/act2\_anexo.ipynb} & \textbf{El código de las ocho tareas en orden literal T1$\rightarrow$T8}, ejecutado y con salidas, más la auditoría de equidad \\
+\texttt{notebooks/04\_split.ipynb} \dots \texttt{09\_fairness.ipynb} & El desarrollo completo por fases, con los análisis que no cupieron aquí \\
+\texttt{src/} & La lógica del proyecto, importable y testeada: el mismo código que se evalúa es el que se desplegaría \\
+\texttt{tests/} & Verificación automática, incluida la de que \textbf{las cifras de este informe coinciden con las que produce el código} \\
+\texttt{docs/adr/} & Las decisiones de ingeniería razonadas, con las alternativas descartadas \\
+\texttt{docs/CHANGELOG\_iteraciones.md} & Los \textit{loops} CRISP-DM, con fecha, disparador y decisión \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Todos los cuadernos pasan \textit{restart \& run all} sin errores. El historial de \textit{commits} documenta el proceso fase por fase, incluidas las correcciones metodológicas: qué se dio por válido, qué se refutó y qué conclusiones hubo que atenuar.
+
+\end{document}
