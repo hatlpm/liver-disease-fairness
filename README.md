@@ -41,6 +41,8 @@ Reaparece en el tratamiento de valores atípicos: el umbral global de Tukey dete
 
 ## Estado
 
+### Actividad 1 — EDA y preparación (entregada)
+
 | Fase | Contenido | Estado |
 |---|---|---|
 | 0 — Setup | Estructura, entorno, `config.py` | ✅ |
@@ -51,42 +53,65 @@ Reaparece en el tratamiento de valores atípicos: el umbral global de Tukey dete
 | 3 — Preprocessing | Tareas 6–8: imputación, escalado, valores atípicos | ✅ |
 | E — Entregables | Informe y notebook anexo | ✅ |
 
-Las fases 4–7 (modelado, auditoría de *fairness*, pipeline, dashboard) quedan para un PRD posterior.
+Posteriormente recibió dos rondas de revisión: una auditoría metodológica externa (8 hallazgos, los 8 corregidos) y una revisión del repositorio que encontró y corrigió un error numérico real. Ambas están registradas en el CHANGELOG.
+
+### Actividad 2 — Modelado y evaluación (en curso)
+
+| Fase | Contenido | Estado |
+|---|---|---|
+| 4 — Contrato de datos y *split* | Deduplicación, reconstrucción de `A/G Ratio`, split estratificado | ✅ |
+| 5 — Pipeline y balanceo | `imblearn.Pipeline`, SMOTE solo en train | ✅ |
+| 6A — Selección de variables | `SelectKBest` dentro del `Pipeline`; decisión sobre `Gender` | ✅ |
+| 6 — Algoritmos e hiperparámetros | Los 5 algoritmos + Grid Search | ✅ |
+| 7 — Evaluación | Métricas justificadas y tabla comparativa | ⬜ |
+| 8 — Experimento factorial | {MinMax, Z-Score} × {SMOTE, sin SMOTE} × 5 modelos | ⬜ |
+| 9 — Auditoría de equidad | FNR por sexo vía validación cruzada repetida | ⬜ |
+| E2 — Entregables | Informe y `act2_anexo.ipynb` | ⬜ |
+| P — Producción | CLI, CI/CD, pipeline serializado, tablero Streamlit | ⬜ |
 
 ## Estructura
 
 ```
 liver-disease-fairness/
+├── params.yaml                   TODO parámetro del experimento: semilla, split, rejillas
 ├── data/
 │   ├── raw/                      dataset original (INMUTABLE)
 │   └── processed/                datasets tratados (se regeneran al ejecutar)
-├── notebooks/
+│       └── split_indices.json    excepción: el split congelado SÍ se versiona
+├── notebooks/                    narrativa; importan de src/, no reimplementan
 │   ├── 01_problem_framing.ipynb
 │   ├── 02_eda.ipynb              Tareas 1-5 + lectura clínica
 │   ├── 02c_eda_clustering.ipynb  clustering exploratorio (valor agregado)
 │   ├── 03_preprocessing.ipynb    Tareas 6-8
-│   └── act1_anexo.ipynb          ← ENTREGABLE: código en orden T1→T8
+│   ├── 04_split.ipynb            contrato de datos y split estratificado
+│   ├── 05_pipeline.ipynb         pipeline de preprocesamiento y SMOTE
+│   ├── 06_modelos.ipynb          los 5 algoritmos y su ajuste
+│   └── act1_anexo.ipynb          ← ENTREGABLE Act 1: código en orden T1→T8
 ├── reports/
-│   ├── informe_act1.md           ← ENTREGABLE: informe sin código
+│   ├── informe_act1.md           ← ENTREGABLE Act 1: informe sin código
 │   └── figures/                  PNG a 300 dpi
 ├── docs/
 │   ├── data_dictionary.md        significado clínico y rangos de referencia
-│   ├── CHANGELOG_iteraciones.md  iteraciones CRISP-DM (Loops A–E)
-│   ├── adr/                      decisiones de ingeniería (5 ADR)
+│   ├── CHANGELOG_iteraciones.md  iteraciones CRISP-DM (Loops A–F)
+│   ├── adr/                      decisiones de ingeniería (9 ADR)
 │   └── fuentes/                  investigación bibliográfica versionada
-├── src/                          config.py, utils.py
+├── src/                          config.py · utils.py · data.py · splitting.py
+│                                 pipelines.py · models.py
+├── tests/                        un archivo por fase (33 tests)
 └── requirements.txt
 ```
 
-> La especificación del proyecto (`PRD_liver_disease_fases_0-3.md`) es material del curso y **vive fuera de este repositorio**, sin versionar. Decisión deliberada y sus consecuencias en [`docs/adr/0005`](docs/adr/0005-prd-fuera-del-repositorio.md). El repo está escrito para poder leerse sin ella.
+> La especificación del proyecto — dos PRD, uno por actividad (`PRD_liver_disease_fases_0-3.md` y `PRD_liver_disease_act2_fases_4-9.md`) — es material del curso y **vive fuera de este repositorio**, sin versionar. Decisión deliberada y sus consecuencias en [`docs/adr/0005`](docs/adr/0005-prd-fuera-del-repositorio.md). El repo está escrito para poder leerse sin ella.
 
 ## Cómo reproducir
 
 ```bash
 rm -rf venv                    # ver aviso abajo
-py -3.13 -m venv venv          # 3.12 y 3.13 verificados
+py -3.13 -m venv venv          # 3.12 y 3.13 verificados; escribe la versión
 ./venv/Scripts/python.exe -m pip install -r requirements.txt
 ```
+
+> ⚠️ **Escribe `py -3.13`, no `py -m venv`.** El intérprete por defecto de `py` es el más nuevo instalado, que puede ser una versión no verificada contra este `requirements.txt` (en una de las máquinas del proyecto, 3.14). Sin la bandera obtienes un entorno de aspecto correcto y sin ningún aviso.
 
 > ⚠️ **Si el proyecto llegó por una carpeta sincronizada (OneDrive, Drive), borra el `venv/` antes de recrearlo.** `.gitignore` impide que git lo rastree, pero no impide que el sincronizador copie la carpeta: llega un `venv/` de aspecto normal cuyo intérprete apunta a la máquina de origen, y todo falla con `did not find executable at 'C:\Users\<otro-usuario>\...'`.
 
@@ -100,7 +125,13 @@ Para ejecutar un notebook de principio a fin y verificar que no falla:
 
 > El entorno usa `ipykernel` + `nbconvert` en lugar del metapaquete `jupyter`, que no se puede instalar por el límite de rutas largas de Windows agravado por la ruta de OneDrive. Ver `docs/adr/0002-entorno-notebooks-sin-jupyterlab.md`.
 
-Los cinco notebooks pasan *restart & run all* sin errores, sin rutas absolutas y con `RANDOM_STATE = 42` fijo. Verificado por última vez el **2026-08-15**, en una máquina distinta de aquella en que se escribieron.
+Los cinco notebooks de la Actividad 1 pasan *restart & run all* sin errores, sin rutas absolutas y con `RANDOM_STATE = 42` fijo. Verificado por última vez el **2026-08-15**, en una máquina distinta de aquella en que se escribieron. Los tres notebooks de la Actividad 2 (`04`, `05`, `06`) se ejecutaron completos y sin errores al cerrar su fase respectiva.
+
+La otra mitad de la verificación son los tests, que existen precisamente para que una sesión nueva sepa qué está realmente cerrado sin fiarse de la documentación:
+
+```bash
+./venv/Scripts/python.exe -m pytest tests/ -v
+```
 
 ## Rigor metodológico
 
